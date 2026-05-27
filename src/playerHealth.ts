@@ -28,6 +28,8 @@ const DAMAGE_OVERLAY_ALPHA_PER_HP = 0.05
 const DAMAGE_OVERLAY_MAX_ALPHA = 0.26
 const PREDICTED_DAMAGE_FEEDBACK_SUPPRESS_MS = 2500
 const DEAD_MOVEMENT_LOCK_DISTANCE_SQ = 0.0025
+// Inset from the spawn bounds so the respawn corner isn't flush against the arena wall.
+const RESPAWN_CORNER_INSET = 2
 
 let deathMovementLockPosition: Vector3 | null = null
 let deathMovementLockSystemInitialized = false
@@ -161,14 +163,19 @@ export function initPlayerDeathMovementLockSystem(): void {
   engine.addSystem(deadMovementLockSystem, undefined, 'player-death-movement-lock-system')
 }
 
-/** Respawn player: move to spawn, restore HP, clear death state. */
+/** Respawn player: move to a fixed corner of the arena (away from the zombie-heavy center). */
 export function respawnPlayer(): void {
   const roomConfig = getCurrentRoomConfig()
-  const respawnPosition = roomConfig.respawnPosition
-  const respawnLookAt = roomConfig.respawnLookAt
+  const center = roomConfig.respawnPosition
+  const respawnPosition = {
+    x: roomConfig.spawnMinX + RESPAWN_CORNER_INSET,
+    y: center.y,
+    z: roomConfig.spawnMinZ + RESPAWN_CORNER_INSET
+  }
   movePlayerTo({
-    newRelativePosition: { x: respawnPosition.x, y: respawnPosition.y, z: respawnPosition.z },
-    cameraTarget: { x: respawnLookAt.x, y: respawnLookAt.y, z: respawnLookAt.z }
+    newRelativePosition: respawnPosition,
+    // Face the arena center so the avatar is framed by the follow camera.
+    cameraTarget: { x: center.x, y: center.y + 1, z: center.z }
   })
   resetPlayerHealthState()
 }
