@@ -145,6 +145,12 @@ const ZOMBIE_SEPARATION_RADIUS_SQ = ZOMBIE_SEPARATION_RADIUS * ZOMBIE_SEPARATION
 const ZOMBIE_SEPARATION_WEIGHT = 0.35
 // When a zombie is within this range of a brick, it targets the brick instead of the player
 const BRICK_AGRO_RANGE = 2.5
+// Zombie melee damage ignores the player's height (distance is computed on XZ only), so a
+// single jump should NOT save you but a double jump should clear a ~1.8m zombie. This threshold
+// sits between the single-jump apex and the double-jump apex; tune it in preview if jump physics change.
+const ZOMBIE_JUMP_CLEARANCE_Y = 1.6
+// Player's last grounded Y, used to detect when they are airborne above a zombie (mirrors lavaHazard).
+let zombiePlayerGroundY: number | null = null
 const ZOMBIE_DEATH_SOUND_URL = 'assets/sounds/alex_jauk-zombie-screaming-207590.mp3'
 const REWARD_TEXT_DURATION = 0.9
 const REWARD_TEXT_RISE_SPEED = 1.15
@@ -1007,6 +1013,11 @@ export function zombieSystem(dt: number) {
   if (!Transform.has(engine.PlayerEntity)) return
 
   const playerPos = Transform.get(engine.PlayerEntity).position
+  // Track the player's grounded Y so we can tell jumping from simply standing on higher ground.
+  if (zombiePlayerGroundY === null || playerPos.y < zombiePlayerGroundY || playerPos.y - zombiePlayerGroundY < 0.2) {
+    zombiePlayerGroundY = playerPos.y
+  }
+  const playerJumpedOverZombie = zombiePlayerGroundY !== null && playerPos.y - zombiePlayerGroundY > ZOMBIE_JUMP_CLEARANCE_Y
   const rageShieldActive = isRaging()
   const rageShieldRadius = getRageShieldRadius()
   const rageShieldHitIntervalSec = getRageShieldHitIntervalSec()
@@ -1126,6 +1137,10 @@ export function zombieSystem(dt: number) {
           damageBrick(targetBrickEntity, mutableZombie.damage)
         } else {
           if (targetIsLocalPlayer && rageShieldActive) {
+            continue
+          }
+          // Jumped clean over the zombie (e.g. via double jump): no melee damage to the local player.
+          if (targetIsLocalPlayer && playerJumpedOverZombie) {
             continue
           }
           const burstCenter = Vector3.create(targetPos.x, targetPos.y + 0.9, targetPos.z)
