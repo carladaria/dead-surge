@@ -5,7 +5,7 @@ import { LobbyPhase, LobbyPlayer, LobbyStateComponent, LobbyStateSnapshot } from
 import { MatchRuntimeSnapshot, MatchRuntimeStateComponent, WaveCyclePhase } from '../shared/matchRuntimeSchemas'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { Vector3 } from '@dcl/sdk/math'
-import { applyAuthoritativeHealthState, resetPlayerHealthAndLives } from '../playerHealth'
+import { applyAuthoritativeHealthState, resetPlayerHealthAndLives, setDeathMovementLockPosition } from '../playerHealth'
 import { resetDeathAnimationState, setLocalAvatarHidden } from '../deathAnimation'
 import { applyPlayerLoadoutSnapshot, getPlayerGold } from '../loadoutState'
 import { enableArenaWeapon, resetArenaWeaponProgress } from '../weaponManager'
@@ -13,7 +13,7 @@ import { resetToIdle } from '../waveManager'
 import { ArenaWeaponType } from '../shared/loadoutCatalog'
 import { START_GAME_COUNTDOWN_SECONDS, WAVE_ACTIVE_SECONDS, WAVE_REST_SECONDS } from '../shared/matchConfig'
 import { getCurrentRoomId as getRuntimeRoomId, setCurrentRoomId } from '../roomRuntime'
-import { DEFAULT_ROOM_ID, RoomId, getArenaRoomConfig, isRoomId } from '../shared/roomConfig'
+import { DEFAULT_ROOM_ID, LOBBY_RETURN_POSITION, RoomId, getArenaRoomConfig, isRoomId } from '../shared/roomConfig'
 import { getServerTime } from '../shared/timeSync'
 import { setIsoViewEnabled, setTopViewEnabled, setAutoFireEnabled, setCameraModeToggleEnabled } from '../gameplayInput'
 
@@ -187,6 +187,10 @@ export function setupLobbyClient(): void {
     latestLobbyEventAtMs = Date.now()
     if (data.type === 'team_wipe') {
       lastTeamWipeAffectedLocalPlayer = localReadyForMatch || localIsInArena
+      if (lastTeamWipeAffectedLocalPlayer) {
+        setDeathMovementLockPosition(LOBBY_RETURN_POSITION)
+        movePlayerTo({ newRelativePosition: LOBBY_RETURN_POSITION })
+      }
     } else {
       lastTeamWipeAffectedLocalPlayer = false
     }
@@ -240,6 +244,8 @@ export function setupLobbyClient(): void {
     if (data.isDead && data.lives <= 0) {
       captureLatestGameOverStatsSnapshot(localAddress)
       localGameOverActive = true
+      setDeathMovementLockPosition(LOBBY_RETURN_POSITION)
+      movePlayerTo({ newRelativePosition: LOBBY_RETURN_POSITION })
     }
   })
   room.onMessage('playerLoadoutState', (data) => {

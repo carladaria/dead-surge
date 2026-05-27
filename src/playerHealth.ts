@@ -136,6 +136,10 @@ function captureDeathMovementLockPosition(): void {
   deathMovementLockPosition = Vector3.create(position.x, position.y, position.z)
 }
 
+export function setDeathMovementLockPosition(pos: Vector3): void {
+  deathMovementLockPosition = Vector3.create(pos.x, pos.y, pos.z)
+}
+
 function deadMovementLockSystem(): void {
   if (!isDead || !deathMovementLockPosition || !Transform.has(engine.PlayerEntity)) return
 
