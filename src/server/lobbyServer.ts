@@ -69,6 +69,8 @@ const VALID_WEAPON_IDS = new Set(LOADOUT_WEAPON_DEFINITIONS.map((w) => w.id))
 const PLAYER_PROGRESS_AUTOSAVE_SECONDS = 20
 const PLAYER_MAX_HP = 5
 const PLAYER_RESPAWN_SECONDS = 5
+// Brief invulnerability window after respawning so players don't die instantly to a zombie cluster.
+const PLAYER_SPAWN_PROTECTION_MS = 2000
 const PLAYER_MAX_LIVES = 2
 const PLAYER_DAMAGE_REQUEST_COOLDOWN_MS = 250
 const PLAYER_HEAL_REQUEST_COOLDOWN_MS = 250
@@ -146,6 +148,7 @@ type PlayerCombatState = {
   hp: number
   isDead: boolean
   respawnAtMs: number
+  spawnProtectedUntilMs: number
   lives: number
   lastDamageRequestAtMs: number
   lastHealRequestAtMs: number
@@ -563,6 +566,7 @@ function getOrCreatePlayerCombatState(address: string): PlayerCombatState {
     hp: PLAYER_MAX_HP,
     isDead: false,
     respawnAtMs: 0,
+    spawnProtectedUntilMs: 0,
     lives: PLAYER_MAX_LIVES,
     lastDamageRequestAtMs: 0,
     lastHealRequestAtMs: 0,
@@ -581,6 +585,7 @@ function resetPlayerCombatState(address: string): void {
   state.hp = PLAYER_MAX_HP
   state.isDead = false
   state.respawnAtMs = 0
+  state.spawnProtectedUntilMs = 0
   state.lives = PLAYER_MAX_LIVES
   state.lastDamageRequestAtMs = 0
   state.lastHealRequestAtMs = 0
@@ -790,6 +795,10 @@ function trySpawnPotionDrops(roomId: RoomId, positionX: number, positionY: numbe
 
 function isRageShieldActive(state: PlayerCombatState, now: number): boolean {
   return state.rageShieldEndAtMs > now
+}
+
+function isSpawnProtected(state: PlayerCombatState, now: number): boolean {
+  return state.spawnProtectedUntilMs > now
 }
 
 function getPlayerFireRateMultiplier(state: PlayerCombatState, now: number): number {
@@ -1016,6 +1025,7 @@ function applyExplosionDamageToPlayer(address: string, zombieId: string, request
   const roomId = getPlayerRoomId(normalizedAddress)
   const state = getOrCreatePlayerCombatState(normalizedAddress)
   if (state.isDead) return
+  if (isSpawnProtected(state, now)) return
 
   const hitKey = getExplosiveZombieDamageKey(normalizedAddress, zombieId)
   if (explosiveZombieDamageByPlayerKey.has(hitKey)) return
@@ -1729,6 +1739,7 @@ function waveRuntimeSystem(dt: number): void {
       combat.hp = PLAYER_MAX_HP
       combat.isDead = false
       combat.respawnAtMs = 0
+      combat.spawnProtectedUntilMs = now + PLAYER_SPAWN_PROTECTION_MS
       sendPlayerHealthState(player.address, roomId)
     }
 
@@ -2237,6 +2248,7 @@ export function setupLobbyServer(): void {
     const now = getServerTime()
     const state = getOrCreatePlayerCombatState(normalizedAddress)
     if (state.isDead) return
+    if (isSpawnProtected(state, now)) return
     if (isRageShieldActive(state, now)) return
     if (now - state.lastDamageRequestAtMs < PLAYER_DAMAGE_REQUEST_COOLDOWN_MS) return
 
@@ -2272,6 +2284,7 @@ export function setupLobbyServer(): void {
 
     const state = getOrCreatePlayerCombatState(normalizedAddress)
     if (state.isDead) return
+    if (isSpawnProtected(state, now)) return
     if (isRageShieldActive(state, now)) return
     if (now - state.lastLavaDamageAtMs < LAVA_DAMAGE_INTERVAL_MS) return
 
