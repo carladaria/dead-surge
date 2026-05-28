@@ -827,6 +827,14 @@ function eliminatePlayerFromMatch(address: string, roomId: RoomId): void {
 
   logLobbyServerEvent(roomId, `PlayerEliminated ${normalizedAddress}`)
 
+  // Persist the eliminated player's match stats before the match-end chain wipes the stat maps
+  // (resetArenaToLobby → resetMatchLeaderboardStats). Without this, the leaderboard never records
+  // players who die in-arena — only those who disconnect mid-match (handled by removePlayerFromLobby).
+  if (commitPlayerMatchStatsToLeaderboard(roomId, player)) {
+    syncLeaderboardToComponent()
+    void leaderboardStore.persist()
+  }
+
   const nextArenaPlayers = lobbyState.arenaPlayers.filter((p) => p.address !== normalizedAddress)
   setArenaPlayers(roomId, nextArenaPlayers)
 
