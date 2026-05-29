@@ -6,9 +6,19 @@ import { getLeaderboardKills, getLeaderboardWaves } from './multiplayer/lobbyCli
 
 const PANEL_UPDATE_INTERVAL = 0.5
 
-function truncateName(displayName: string, address: string, maxLen: number = 14): string {
-  const name = displayName && displayName.length > 0 ? displayName : address.slice(0, 8)
-  return name.length > maxLen ? name.slice(0, maxLen - 1) + '…' : name
+function formatLeaderboardName(displayName: string, address: string, maxLen: number = 14): string {
+  const fallbackName = address.slice(0, 6)
+  const baseName = displayName && displayName.length > 0 ? displayName : fallbackName
+  const suffix = `#${address.slice(-4)}`
+  const fullName = `${baseName}${suffix}`
+  const safeMaxLen = Math.max(1, maxLen)
+
+  if (fullName.length <= safeMaxLen) return fullName
+  if (safeMaxLen <= suffix.length) return suffix.slice(0, safeMaxLen)
+  if (safeMaxLen === suffix.length + 1) return `…${suffix}`
+
+  const maxBaseLength = safeMaxLen - suffix.length
+  return `${baseName.slice(0, Math.max(1, maxBaseLength - 1))}…${suffix}`
 }
 
 export function initLeaderboardWorldPanel(): void {
@@ -58,7 +68,7 @@ export function initLeaderboardWorldPanel(): void {
 
     const killsEntries = getLeaderboardKills()
     const killsData: LeaderboardPanelEntry[] = killsEntries.map((e) => ({
-      name: truncateName(e.displayName, e.address),
+      name: formatLeaderboardName(e.displayName, e.address),
       value: String(e.value)
     }))
     const killsKey = killsData.map((e) => `${e.name}:${e.value}`).join('|')
@@ -69,7 +79,7 @@ export function initLeaderboardWorldPanel(): void {
 
     const wavesEntries = getLeaderboardWaves()
     const wavesData: LeaderboardPanelEntry[] = wavesEntries.map((e) => ({
-      name: truncateName(e.displayName, e.address),
+      name: formatLeaderboardName(e.displayName, e.address),
       value: String(e.value)
     }))
     const wavesKey = wavesData.map((e) => `${e.name}:${e.value}`).join('|')
