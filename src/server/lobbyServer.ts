@@ -494,6 +494,45 @@ function getPlayerDisplayName(address: string): string {
   return normalizedAddress.slice(0, 8)
 }
 
+function isAddressDerivedDisplayName(displayName: string, address: string): boolean {
+  const normalizedAddress = address.toLowerCase()
+  const normalizedDisplayName = displayName.trim().toLowerCase()
+
+  if (!normalizedDisplayName) return true
+
+  return (
+    normalizedDisplayName === normalizedAddress ||
+    normalizedDisplayName === normalizedAddress.slice(0, 8) ||
+    normalizedDisplayName === normalizedAddress.slice(0, 6) ||
+    normalizedDisplayName === `${normalizedAddress.slice(0, 6)}...${normalizedAddress.slice(-4)}` ||
+    normalizedDisplayName === `${normalizedAddress.slice(0, 6)}#${normalizedAddress.slice(-4)}`
+  )
+}
+
+function pickPreferredDisplayName(address: string, ...candidates: Array<string | null | undefined>): string {
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue
+    const trimmedCandidate = candidate.trim()
+    if (!trimmedCandidate) continue
+    if (!isAddressDerivedDisplayName(trimmedCandidate, address)) return trimmedCandidate
+  }
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue
+    const trimmedCandidate = candidate.trim()
+    if (trimmedCandidate) return trimmedCandidate
+  }
+
+  return address.toLowerCase().slice(0, 8)
+}
+
+function getResolvedPlayerDisplayName(address: string): string {
+  const normalizedAddress = address.toLowerCase()
+  const liveDisplayName = getPlayerDisplayName(normalizedAddress)
+  const cachedDisplayName = playerProgressStore.get(normalizedAddress)?.profile.lastKnownName
+  return pickPreferredDisplayName(normalizedAddress, liveDisplayName, cachedDisplayName)
+}
+
 function getLobbyStateMutable(roomId: RoomId) {
   const roomState = getRoomServerState(roomId)
   if (roomState.lobbyEntity === null) {
@@ -1231,18 +1270,37 @@ async function ensurePlayerLoadedAndInLobby(roomId: RoomId, address: string): Pr
 
 async function ensurePlayerProfileLoaded(address: string): Promise<void> {
   const normalizedAddress = address.toLowerCase()
+  const displayName = getResolvedPlayerDisplayName(normalizedAddress)
+
   if (loadedProfileAddresses.has(normalizedAddress)) {
+    const cached = playerProgressStore.get(normalizedAddress)
+    if (cached && cached.profile.lastKnownName !== displayName) {
+      playerProgressStore.mutate(normalizedAddress, (progress) => {
+        progress.profile.lastKnownName = displayName
+      })
+    }
     sendPlayerLoadoutState(normalizedAddress)
     return
   }
-  const displayName = getPlayerDisplayName(normalizedAddress)
+
   const progress = await playerProgressStore.load(normalizedAddress, displayName)
+  const resolvedDisplayName = pickPreferredDisplayName(
+    normalizedAddress,
+    getPlayerDisplayName(normalizedAddress),
+    progress.profile.lastKnownName,
+    displayName
+  )
+  if (progress.profile.lastKnownName !== resolvedDisplayName) {
+    playerProgressStore.mutate(normalizedAddress, (state) => {
+      state.profile.lastKnownName = resolvedDisplayName
+    })
+  }
   loadedProfileAddresses.add(normalizedAddress)
   sendPlayerLoadoutState(normalizedAddress)
-  console.log(`[Server][Lobby] ProfileLoaded ${displayName} (${normalizedAddress})`)
+  console.log(`[Server][Lobby] ProfileLoaded ${resolvedDisplayName} (${normalizedAddress})`)
   sendMessage('lobbyEvent', {
     type: 'profile_loaded',
-    message: `${displayName} profile loaded (GOLD ${progress.profile.gold})`
+    message: `${resolvedDisplayName} profile loaded (GOLD ${progress.profile.gold})`
   }, [normalizedAddress])
 }
 
@@ -1293,7 +1351,8 @@ function addPlayerToLobby(roomId: RoomId, address: string): void {
   if (state.players.some((p) => p.address === normalizedAddress)) return
   if (state.players.length >= MATCH_MAX_PLAYERS) return
 
-  const nextPlayers = [...state.players, { address: normalizedAddress, displayName: getPlayerDisplayName(normalizedAddress) }]
+  const displayName = getResolvedPlayerDisplayName(normalizedAddress)
+  const nextPlayers = [...state.players, { address: normalizedAddress, displayName }]
   playerRoomByAddress.set(normalizedAddress, roomId)
   setPlayers(roomId, nextPlayers)
 
@@ -1310,12 +1369,12 @@ function addPlayerToLobby(roomId: RoomId, address: string): void {
 
   logLobbyServerEvent(
     roomId,
-    `PlayerJoined ${getPlayerDisplayName(normalizedAddress)} ${nextPlayers.length}/${MATCH_MAX_PLAYERS}`
+    `PlayerJoined ${displayName} ${nextPlayers.length}/${MATCH_MAX_PLAYERS}`
   )
 
   sendToLobby(roomId, 'lobbyEvent', {
     type: 'join',
-    message: `${getPlayerDisplayName(normalizedAddress)} joined lobby`
+    message: `${displayName} joined lobby`
   })
 }
 
@@ -1823,18 +1882,30 @@ function syncLeaderboardToComponent(): void {
 function commitPlayerMatchStatsToLeaderboard(roomId: RoomId, player: LobbyPlayer): boolean {
   const progress = playerProgressStore.get(player.address)
   if (!progress) return false
+  const displayName = pickPreferredDisplayName(
+    player.address,
+    getPlayerDisplayName(player.address),
+    progress.profile.lastKnownName,
+    player.displayName
+  )
+
+  if (progress.profile.lastKnownName !== displayName) {
+    playerProgressStore.mutate(player.address, (state) => {
+      state.profile.lastKnownName = displayName
+    })
+  }
 
   const roomState = getRoomServerState(roomId)
   const killsChanged = leaderboardStore.update(
     'kills',
     player.address,
-    progress.profile.lastKnownName,
+    displayName,
     roomState.playerMatchKillsByAddress.get(player.address) ?? 0
   )
   const wavesChanged = leaderboardStore.update(
     'waves',
     player.address,
-    progress.profile.lastKnownName,
+    displayName,
     roomState.playerMatchWavesSurvivedByAddress.get(player.address) ?? 0
   )
 
