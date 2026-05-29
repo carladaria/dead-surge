@@ -81,6 +81,7 @@ export type ArenaRoomConfig = {
   arenaCenter: Vector3
   arenaTeleportPosition: { x: number; y: number; z: number }
   arenaTeleportLookAt: { x: number; y: number; z: number }
+  respawnPoints: Array<{ x: number; y: number; z: number }>
   respawnPosition: { x: number; y: number; z: number }
   respawnLookAt: { x: number; y: number; z: number }
   spawnMinX: number
@@ -96,6 +97,14 @@ export type ArenaRoomConfig = {
   floorSizeX: number
   floorSizeZ: number
 }
+
+const RESPAWN_POINT_OFFSET = 15
+const RESPAWN_POINT_LAYOUT = [
+  { x: -RESPAWN_POINT_OFFSET, z: -RESPAWN_POINT_OFFSET },
+  { x: RESPAWN_POINT_OFFSET, z: -RESPAWN_POINT_OFFSET },
+  { x: -RESPAWN_POINT_OFFSET, z: RESPAWN_POINT_OFFSET },
+  { x: RESPAWN_POINT_OFFSET, z: RESPAWN_POINT_OFFSET }
+] as const
 
 function createArenaRoomConfig(roomId: RoomId, sceneLayout?: SceneArenaLayout): ArenaRoomConfig {
   const offset = ROOM_WORLD_OFFSET_BY_ID[roomId]
@@ -121,6 +130,11 @@ function createArenaRoomConfig(roomId: RoomId, sceneLayout?: SceneArenaLayout): 
   const brickMaxX = sceneLayout ? centerX + (ARENA_BRICK_MAX_X - ARENA_CENTER_X) : ARENA_BRICK_MAX_X + offset.x
   const brickMinZ = sceneLayout ? centerZ + (ARENA_BRICK_MIN_Z - ARENA_CENTER_Z) : ARENA_BRICK_MIN_Z + offset.z
   const brickMaxZ = sceneLayout ? centerZ + (ARENA_BRICK_MAX_Z - ARENA_CENTER_Z) : ARENA_BRICK_MAX_Z + offset.z
+  const respawnPoints = RESPAWN_POINT_LAYOUT.map((point) => ({
+    x: centerX + point.x,
+    y: centerY,
+    z: centerZ + point.z
+  }))
 
   return {
     roomId,
@@ -131,7 +145,8 @@ function createArenaRoomConfig(roomId: RoomId, sceneLayout?: SceneArenaLayout): 
     arenaCenter: Vector3.create(centerX, centerY, centerZ),
     arenaTeleportPosition: { x: centerX, y: centerY, z: centerZ },
     arenaTeleportLookAt: { x: lookAtX, y: lookAtY, z: lookAtZ },
-    respawnPosition: { x: centerX, y: centerY, z: centerZ },
+    respawnPoints,
+    respawnPosition: respawnPoints[0],
     respawnLookAt: { x: lookAtX, y: lookAtY, z: lookAtZ },
     spawnMinX,
     spawnMaxX,
