@@ -11,10 +11,13 @@ function formatLeaderboardName(displayName: string, address: string, maxLen: num
   const baseName = displayName && displayName.length > 0 ? displayName : fallbackName
   const suffix = `#${address.slice(-4)}`
   const fullName = `${baseName}${suffix}`
+  const safeMaxLen = Math.max(1, maxLen)
 
-  if (fullName.length <= maxLen) return fullName
+  if (fullName.length <= safeMaxLen) return fullName
+  if (safeMaxLen <= suffix.length) return suffix.slice(0, safeMaxLen)
+  if (safeMaxLen === suffix.length + 1) return `…${suffix}`
 
-  const maxBaseLength = Math.max(1, maxLen - suffix.length)
+  const maxBaseLength = safeMaxLen - suffix.length
   return `${baseName.slice(0, Math.max(1, maxBaseLength - 1))}…${suffix}`
 }
 
