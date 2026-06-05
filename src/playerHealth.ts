@@ -142,6 +142,31 @@ export function setDeathMovementLockPosition(pos: Vector3): void {
   deathMovementLockPosition = Vector3.create(pos.x, pos.y, pos.z)
 }
 
+function chooseRespawnPosition(): { x: number; y: number; z: number } {
+  const roomConfig = getCurrentRoomConfig()
+  const respawnPoints = roomConfig.respawnPoints
+
+  if (respawnPoints.length === 0) return roomConfig.respawnPosition
+  if (respawnPoints.length === 1 || !deathMovementLockPosition) {
+    return respawnPoints[Math.floor(Math.random() * respawnPoints.length)]
+  }
+  const deathPosition = deathMovementLockPosition
+
+  const rankedPoints = [...respawnPoints]
+    .map((point) => {
+      const dx = point.x - deathPosition.x
+      const dz = point.z - deathPosition.z
+      return {
+        point,
+        distanceSq: dx * dx + dz * dz
+      }
+    })
+    .sort((left, right) => right.distanceSq - left.distanceSq)
+
+  const candidateCount = Math.min(2, rankedPoints.length)
+  return rankedPoints[Math.floor(Math.random() * candidateCount)].point
+}
+
 function deadMovementLockSystem(): void {
   if (!isDead || !deathMovementLockPosition || !Transform.has(engine.PlayerEntity)) return
 
@@ -170,7 +195,7 @@ export function initPlayerDeathMovementLockSystem(): void {
 /** Respawn player: move to spawn, restore HP, clear death state. */
 export function respawnPlayer(): void {
   const roomConfig = getCurrentRoomConfig()
-  const respawnPosition = roomConfig.respawnPosition
+  const respawnPosition = chooseRespawnPosition()
   const respawnLookAt = roomConfig.respawnLookAt
   movePlayerTo({
     newRelativePosition: { x: respawnPosition.x, y: respawnPosition.y, z: respawnPosition.z },

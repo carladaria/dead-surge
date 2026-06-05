@@ -20,7 +20,13 @@ import { getGameTime } from './zombie'
 import { isSpeedActive, getSpeedTimeLeft, SPEED_DURATION_SEC } from './speedEffect'
 import { isRaging, getRageTimeLeft, RAGE_DURATION_SEC } from './rageEffect'
 import { getHealthPickupFeedback } from './potions'
-import { beginUiPointerCapture, endUiPointerCapture, isAutoFireEnabled, isTopViewEnabled, isIsoViewEnabled } from './gameplayInput'
+import {
+  beginUiPointerCapture,
+  endUiPointerCapture,
+  isAutoFireEnabled,
+  isTopViewEnabled,
+  isIsoViewEnabled
+} from './gameplayInput'
 import {
   getCurrentWeapon,
   getWeaponUnlockCost,
