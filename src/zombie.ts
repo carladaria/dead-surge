@@ -3,7 +3,6 @@ import {
   Entity,
   Transform,
   PlayerIdentityData,
-  AudioSource,
   TextShape,
   GltfContainer,
   Animator,
@@ -32,6 +31,7 @@ import {
 } from './rageEffect'
 import { isIsoViewEnabled } from './viewModes'
 import { getCurrentRoomId } from './roomRuntime'
+import { playZombieDeathSound, playZombieExplosionSound } from './soundManager'
 
 // Animation clip names from Zombie.glb
 const ANIM_ZOMBIE_UP = 'ZombieUP'
@@ -151,7 +151,6 @@ const BRICK_AGRO_RANGE = 2.5
 const ZOMBIE_JUMP_CLEARANCE_Y = 1.6
 // Player's last grounded Y, used to detect when they are airborne above a zombie (mirrors lavaHazard).
 let zombiePlayerGroundY: number | null = null
-const ZOMBIE_DEATH_SOUND_URL = 'assets/sounds/alex_jauk-zombie-screaming-207590.mp3'
 const REWARD_TEXT_DURATION = 0.9
 const REWARD_TEXT_RISE_SPEED = 1.15
 const REWARD_TEXT_BASE_COLOR = Color4.create(0.0, 1.0, 0.92, 1)
@@ -173,7 +172,6 @@ type SpawnZombieOptions = {
 type ZombieHitWeaponType = 'gun' | 'shotgun' | 'minigun'
 
 let reportServerZombieHit: ((zombieId: string, damage: number, weaponType: ZombieHitWeaponType, shotSeq: number, posX: number, posY: number, posZ: number) => void) | null = null
-let zombieDeathSoundEntity: Entity | null = null
 let reportPlayerDamageToServer: ((amount: number) => void) | null = null
 const lastRageShieldHitAtByZombieKey = new Map<string, number>()
 const explodedZombieIds = new Set<string>()
@@ -187,34 +185,6 @@ export function setZombieHitReporter(
 }
 export function setPlayerDamageReporter(reporter: ((amount: number) => void) | null): void {
   reportPlayerDamageToServer = reporter
-}
-
-function playZombieDeathSound(): void {
-  if (zombieDeathSoundEntity === null) {
-    zombieDeathSoundEntity = engine.addEntity()
-    Transform.create(zombieDeathSoundEntity, {
-      position: Vector3.create(0, 0, 0),
-      rotation: Quaternion.Identity(),
-      scale: Vector3.One()
-    })
-    AudioSource.create(zombieDeathSoundEntity, {
-      audioClipUrl: ZOMBIE_DEATH_SOUND_URL,
-      loop: false,
-      volume: 0.8,
-      global: true,
-      currentTime: 0,
-      playing: true
-    })
-    return
-  }
-
-  const audio = AudioSource.getMutable(zombieDeathSoundEntity)
-  audio.audioClipUrl = ZOMBIE_DEATH_SOUND_URL
-  audio.loop = false
-  audio.global = true
-  audio.volume = 0.8
-  audio.currentTime = 0
-  audio.playing = true
 }
 
 function getRandomSpawnPosition(): Vector3 {
@@ -250,6 +220,7 @@ function createZombieRoot(position: Vector3, modelSrc: string): Entity {
 }
 
 function playExploderVfx(position: Vector3): void {
+  playZombieExplosionSound()
   const vfx = engine.addEntity()
   Transform.create(vfx, {
     position: Vector3.clone(position),

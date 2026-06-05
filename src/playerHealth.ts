@@ -3,6 +3,7 @@ import { Vector3 } from '@dcl/sdk/math'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { getCurrentRoomConfig } from './roomRuntime'
 import { getServerTime } from './shared/timeSync'
+import { playDamageSound } from './soundManager'
 
 export const MAX_HP = 5
 export const MAX_LIVES = 2
@@ -112,6 +113,7 @@ export function getHealGlowEndTime(): number {
 function triggerDamageOverlay(damageTaken: number, nowMs: number): void {
   if (damageTaken <= 0) return
 
+  playDamageSound()
   const normalizedDamage = Math.max(1, Math.floor(damageTaken))
   damageOverlayTriggeredAtMs = nowMs
   damageOverlayPeakAlpha = Math.min(

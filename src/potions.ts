@@ -1,5 +1,6 @@
 import { Animator, engine, Entity, GltfContainer, Schemas, Transform } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
+import { playHealthPickupSound, playRagePickupSound, playSpeedPickupSound } from './soundManager'
 import { room } from './shared/messages'
 import { getCurrentRoomId } from './roomRuntime'
 import { getPlayerHp, healPlayer, MAX_HP, setHealGlowEndTime } from './playerHealth'
@@ -123,15 +124,18 @@ function applyLocalPotionEffect(potionType: PotionType, now: number): void {
     healthPickupFeedbackText = hpBefore >= MAX_HP ? 'Maximum Health' : '+100 Health'
     healthPickupFeedbackEndTime = now + 1.5
     setHealGlowEndTime(now + 1.5)
+    playHealthPickupSound()
     return
   }
 
   if (potionType === 'speed') {
     applySpeedEffect(now)
+    playSpeedPickupSound()
     return
   }
 
   applyRageEffect(now)
+  playRagePickupSound()
 }
 
 function isLocalPlayerInCurrentMatch(): boolean {
