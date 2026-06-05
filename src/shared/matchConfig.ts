@@ -41,8 +41,7 @@ export const BRICK_COST_TIER_3_WAVE = 10
 export const BRICK_COST_TIER_4_WAVE = 15
 
 // In-match ZC economy
-// TEMP (testing): bumped 5 -> 25 to buy weapons faster while testing. Revert before commit.
-export const COINS_PER_KILL = 25
+export const COINS_PER_KILL = 5
 export const SHOTGUN_UNLOCK_COST_ZC = 300
 export const MINIGUN_UNLOCK_COST_ZC = 900
 
