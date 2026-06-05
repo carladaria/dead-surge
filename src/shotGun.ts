@@ -6,6 +6,7 @@ import {
   Animator
 } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
+import { playWeaponShotSound } from './soundManager'
 import { ZombieComponent } from './zombie'
 import {
   getProjectileSpawnData,
@@ -211,6 +212,7 @@ export function shotGunSystem(dt: number) {
 
   shootTimer = 0
   playGunAnimation()
+  playWeaponShotSound('shotgun')
   const nextShotSeq = localShotSeq + 1
   const direction = spawnProjectile(visibleGunPos, visibleGunRot, true, 'shotgun', nextShotSeq, getLocalAddress() ?? '')
   localShotSeq = nextShotSeq

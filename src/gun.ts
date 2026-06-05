@@ -7,6 +7,7 @@ import {
   Schemas
 } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
+import { playWeaponShotSound } from './soundManager'
 import { ZombieComponent, damageZombie, getGameTime } from './zombie'
 import { getCurrentWeapon } from './weaponManager'
 import { getLobbyState, getLocalAddress, isLocalReadyForMatch, sendPlayerShotRequest } from './multiplayer/lobbyClient'
@@ -620,6 +621,7 @@ export function gunSystem(dt: number) {
 
   shootTimer = 0
   playGunAnimation()
+  playWeaponShotSound('gun')
 
   const nextShotSeq = localShotSeq + 1
   const direction = spawnProjectile(visibleGunPos, visibleGunRot, true, 'gun', nextShotSeq, getLocalAddress() ?? '', upgradeStats.damage)

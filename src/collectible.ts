@@ -1,5 +1,6 @@
 import { engine, Entity, GltfContainer, Schemas, Transform } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
+import { playCoinSound } from './soundManager'
 import { room } from './shared/messages'
 import { getCurrentRoomId } from './roomRuntime'
 import { getServerTime } from './shared/timeSync'
@@ -178,6 +179,7 @@ export function collectibleSystem(dt: number): void {
 
     CollectibleComponent.getMutable(entity).claimPending = true
     predictedPickupIds.add(col.collectibleId)
+    playCoinSound()
     addZombieCoins(COINS_PER_KILL)
     spawnZcRewardTextAtPosition(Vector3.create(col.baseX, COLLECTIBLE_FLOAT_HEIGHT, col.baseZ), COINS_PER_KILL)
     t.scale = Vector3.Zero()

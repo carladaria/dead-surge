@@ -4,6 +4,7 @@ import { ZombieComponent } from './zombie'
 import { resetZombieCoins } from './zombieCoins'
 import { despawnAllBricks } from './brick'
 import { getLobbyState } from './multiplayer/lobbyClient'
+import { playWinSound } from './soundManager'
 
 const MAX_WAVES = 100
 const COUNTDOWN_SECONDS = 5 // Give players more time to prepare
@@ -344,6 +345,7 @@ function checkWaveComplete(): void {
   const allSpawned = state.nextSpawnIndex >= state.spawnSchedule.length
   const zombiesLeft = countZombiesAlive()
   if (allSpawned && zombiesLeft === 0) {
+    playWinSound()
     if (state.currentWave >= MAX_WAVES) {
       state.phase = 'game_complete'
     } else {
