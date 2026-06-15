@@ -26,6 +26,7 @@ import { initGunSystems, spawnReplicatedGunShotVisual } from './gun'
 import { initShotGunSystems, spawnReplicatedShotGunShotVisual } from './shotGun'
 import { initMiniGunSystems, spawnReplicatedMiniGunShotVisual } from './miniGun'
 import { initBrickSystem } from './brick'
+import { initArenaWallsSystem } from './arenaWalls'
 import { initLavaHazardClient, lavaHazardSystem } from './lavaHazard'
 import { updateAutoFireToggle, isTopViewEnabled, updateTopViewToggle, isIsoViewEnabled, updateIsoViewToggle } from './gameplayInput'
 import { initHealthBarSystem } from './healthBar'
@@ -376,6 +377,8 @@ export function main() {
   engine.addSystem(lavaHazardSystem)
   initDeathAnimationSystem()
   initPlayerDeathMovementLockSystem()
+  // Tall arena wall colliders that block escaping during gameplay
+  initArenaWallsSystem()
   // Authoritative match waves (30s active / 10s rest)
   initMatchWaveClientSystem()
 
