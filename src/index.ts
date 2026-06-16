@@ -72,7 +72,8 @@ import { refreshArenaRoomConfigsFromScene } from './shared/roomConfig'
 import { DEBUG_SHOP_UI_ONLY, DEBUG_SHOP_UI_ONLY_LOADOUT, DEBUG_UI_ONLY_MODE } from './debugFlags'
 import { applyPlayerLoadoutSnapshot } from './loadoutState'
 import { openLobbyStore } from './lobbyStoreUi'
-import { getTutorialCameraTransitionProgress, initTutorialSystem } from './tutorial'
+import { getTutorialCameraFocusTarget, getTutorialCameraTransitionProgress, initTutorialSystem } from './tutorial'
+import { getTutorialCoinCameraDebugState, getTutorialZombieCameraDebugState } from './tutorialCameraDebug'
 import { isTutorialActive } from './tutorialState'
 
 // Cinematic (Diablo-like) camera: follows player position but keeps fixed world rotation (no parent)
@@ -98,7 +99,6 @@ const ISO_VIEW_DT_MAX = 1 / 30
 const ISO_VIEW_TUTORIAL_X_BIAS = 3.2
 const ISO_VIEW_TUTORIAL_Z_BIAS = -7.8
 const ISO_VIEW_TUTORIAL_YAW_BIAS_DEG = 7
-
 let useCinematicCamera = false
 let cinematicCameraEntity: ReturnType<typeof engine.addEntity> | null = null
 let cinematicSmoothedTarget = Vector3.create(0, 0, 0)
@@ -203,14 +203,39 @@ function isoViewCameraSystem(dt: number) {
   const stableDt = Math.min(dt, ISO_VIEW_DT_MAX)
   const playerPos = Transform.get(engine.PlayerEntity).position
   const tutorialProgress = isTutorialActive() ? getTutorialCameraTransitionProgress() : 0
-  const tutorialBiasX = ISO_VIEW_TUTORIAL_X_BIAS * tutorialProgress
-  const tutorialBiasZ = ISO_VIEW_TUTORIAL_Z_BIAS * tutorialProgress
+  const tutorialFocusTarget = isTutorialActive() ? getTutorialCameraFocusTarget() : null
+  const tutorialZombieCameraDebugState = getTutorialZombieCameraDebugState()
+  const tutorialCoinCameraDebugState = getTutorialCoinCameraDebugState()
+  const tutorialBiasX = tutorialFocusTarget
+    ? (tutorialFocusTarget.kind === 'zombie'
+        ? tutorialZombieCameraDebugState.xBias
+        : tutorialCoinCameraDebugState.xBias) * tutorialProgress
+    : ISO_VIEW_TUTORIAL_X_BIAS * tutorialProgress
+  const tutorialBiasZ = tutorialFocusTarget
+    ? (tutorialFocusTarget.kind === 'zombie'
+        ? tutorialZombieCameraDebugState.zBias
+        : tutorialCoinCameraDebugState.zBias) * tutorialProgress
+    : ISO_VIEW_TUTORIAL_Z_BIAS * tutorialProgress
+  const focusBasePosition = tutorialFocusTarget
+    ? Vector3.lerp(playerPos, tutorialFocusTarget.position, tutorialProgress)
+    : playerPos
+  const tutorialObjectHeight =
+    tutorialFocusTarget?.kind === 'zombie'
+      ? tutorialZombieCameraDebugState.height
+      : tutorialCoinCameraDebugState.height
+  const tutorialObjectDistance =
+    tutorialFocusTarget?.kind === 'zombie'
+      ? tutorialZombieCameraDebugState.distance
+      : tutorialCoinCameraDebugState.distance
+  const cameraHeight = ISO_VIEW_HEIGHT + (tutorialObjectHeight - ISO_VIEW_HEIGHT) * tutorialProgress
+  const cameraDistance = ISO_VIEW_DISTANCE + (tutorialObjectDistance - ISO_VIEW_DISTANCE) * tutorialProgress
   // Diagonal offset: pull back equally on X and Z (45° corner)
   const diag = ISO_VIEW_DISTANCE * 0.707 // sin/cos of 45°
+  const tutorialDiag = cameraDistance * 0.707
   const target = Vector3.create(
-    playerPos.x - diag + tutorialBiasX,
-    playerPos.y + ISO_VIEW_HEIGHT,
-    playerPos.z - diag + tutorialBiasZ
+    focusBasePosition.x - tutorialDiag + tutorialBiasX,
+    focusBasePosition.y + cameraHeight,
+    focusBasePosition.z - tutorialDiag + tutorialBiasZ
   )
 
   if (!isoViewSmoothedReady) {
@@ -222,11 +247,25 @@ function isoViewCameraSystem(dt: number) {
   isoViewSmoothedPos = Vector3.lerp(isoViewSmoothedPos, target, factor)
   const isoCameraTransform = Transform.getMutable(isoViewCameraEntity)
   isoCameraTransform.position = isoViewSmoothedPos
-  isoCameraTransform.rotation = Quaternion.fromEulerDegrees(
-    ISO_VIEW_TILT_DEG,
-    45 + ISO_VIEW_TUTORIAL_YAW_BIAS_DEG * tutorialProgress,
-    0
-  )
+  if (tutorialFocusTarget && tutorialProgress > 0.001) {
+    const lookTarget = Vector3.create(
+      tutorialFocusTarget.position.x +
+        (tutorialFocusTarget.kind === 'zombie' ? tutorialZombieCameraDebugState.lookAtX : tutorialCoinCameraDebugState.lookAtX),
+      tutorialFocusTarget.position.y +
+        (tutorialFocusTarget.kind === 'zombie'
+          ? tutorialZombieCameraDebugState.lookAtHeight
+          : tutorialCoinCameraDebugState.lookAtHeight),
+      tutorialFocusTarget.position.z
+    )
+    const lookDirection = Vector3.normalize(Vector3.subtract(lookTarget, isoViewSmoothedPos))
+    isoCameraTransform.rotation = Quaternion.lookRotation(lookDirection)
+  } else {
+    isoCameraTransform.rotation = Quaternion.fromEulerDegrees(
+      ISO_VIEW_TILT_DEG,
+      45 + ISO_VIEW_TUTORIAL_YAW_BIAS_DEG * tutorialProgress,
+      0
+    )
+  }
 }
 
 function cinematicCameraFollowSystem(dt: number) {

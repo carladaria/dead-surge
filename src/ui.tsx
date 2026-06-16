@@ -1488,6 +1488,38 @@ const teamPanelNameWidth = isMobileRuntime ? 100 : 120
           </UiEntity>
         </UiEntity>
       )}
+      {tutorialUiState.countdownText.length > 0 && (
+        <UiEntity
+          uiTransform={{
+            width: '100%',
+            height: '100%',
+            positionType: 'absolute',
+            position: { left: 0, top: 0 },
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <UiEntity
+            uiTransform={{
+              width: isMobileRuntime ? 260 : 220,
+              height: isMobileRuntime ? 140 : 120,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <UiEntity
+              uiTransform={{ width: '100%', height: '100%' }}
+              uiText={{
+                value: tutorialUiState.countdownText,
+                fontSize: isMobileRuntime ? 110 : 96,
+                color: Color4.create(1, 0.92, 0.38, 1),
+                textAlign: 'middle-center'
+              }}
+            />
+          </UiEntity>
+        </UiEntity>
+      )}
       {combinedDamageOverlayAlpha > 0.01 && (
         <UiEntity
           uiTransform={{

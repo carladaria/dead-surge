@@ -2,6 +2,7 @@ import { engine, Entity, GltfContainer, Transform } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { DEBUG_FORCE_TUTORIAL_MODE } from './debugFlags'
+import { setLocalAvatarHidden } from './deathAnimation'
 import { endUiPointerCapture, setAutoFireEnabled, setIsoViewEnabled, setTopViewEnabled } from './gameplayInput'
 import { setZombieHealthBarMaxHp } from './healthBar'
 import { closeLobbyStore } from './lobbyStoreUi'
@@ -11,7 +12,7 @@ import { getArenaRoomConfig, DEFAULT_ROOM_ID, LOBBY_RETURN_LOOK_AT, LOBBY_RETURN
 import { LobbyPhase } from './shared/lobbySchemas'
 import { playCoinSound } from './soundManager'
 import { isTutorialCompleted, isTutorialStateLoaded, markTutorialCompletedLocally, setTutorialActive, setTutorialCombatEnabled } from './tutorialState'
-import { enableArenaWeapon, resetArenaWeaponProgress } from './weaponManager'
+import { enableArenaWeapon, resetArenaWeaponProgress, setWeaponHiddenByTutorial } from './weaponManager'
 import { addZombieCoins, COINS_PER_KILL, resetZombieCoins } from './zombieCoins'
 import { ZombieComponent, getGameTime, spawnZcRewardTextAtPosition, spawnZombie } from './zombie'
 
@@ -22,16 +23,21 @@ const TUTORIAL_COIN_BOB_AMPLITUDE = 0.12
 const TUTORIAL_COIN_BOB_SPEED = 2.1
 const TUTORIAL_TARGET_Z_OFFSET = 8.5
 const TUTORIAL_PLAYER_SPAWN_X_OFFSET = 4
-const TUTORIAL_PLAYER_TO_TARGET_Z_GAP = 4.25
+const TUTORIAL_PLAYER_TO_TARGET_Z_GAP = 9.25
+const TUTORIAL_ZOMBIE_SPAWN_DELAY_SEC = 0.22
+const TUTORIAL_SPLIT_PREVIEW_SEC = 1.2
 const TUTORIAL_PANEL_TRANSITION_SEC = 0.45
+const TUTORIAL_COMBAT_COUNTDOWN_SEC = 3
 const TUTORIAL_MOVEMENT_LOCK_DISTANCE_SQ = 0.0025
 
 type TutorialPhase =
   | 'inactive'
   | 'card1'
+  | 'card2_spawn_preview'
   | 'card2_transition'
   | 'card2_ready'
   | 'combat_transition_out'
+  | 'combat_countdown'
   | 'combat_hidden'
   | 'card3_transition'
   | 'card3'
@@ -51,6 +57,12 @@ export type TutorialUiState = {
   panelLayout: TutorialPanelLayout
   layoutProgress: number
   rightBackdropProgress: number
+  countdownText: string
+}
+
+export type TutorialCameraFocusTarget = {
+  position: Vector3
+  kind: 'zombie' | 'coin'
 }
 
 type TutorialZombiePauseState = {
@@ -117,10 +129,30 @@ function clearTutorialMovementLock(): void {
 
 const tutorialZombiePauseStates = new Map<Entity, TutorialZombiePauseState>()
 
+function setTutorialMovementLockPosition(position: Vector3): void {
+  tutorialState.movementLockPosition = Vector3.create(position.x, position.y, position.z)
+}
+
 function captureTutorialMovementLockPosition(): void {
   if (!Transform.has(engine.PlayerEntity)) return
   const position = Transform.get(engine.PlayerEntity).position
-  tutorialState.movementLockPosition = Vector3.create(position.x, position.y, position.z)
+  setTutorialMovementLockPosition(position)
+}
+
+function shouldHideLocalAvatarForTutorialPhase(phase: TutorialPhase): boolean {
+  return (
+    phase === 'card2_transition' ||
+    phase === 'card2_spawn_preview' ||
+    phase === 'card2_ready' ||
+    phase === 'card3_transition' ||
+    phase === 'card3'
+  )
+}
+
+function syncTutorialAvatarVisibility(): void {
+  const hidden = shouldHideLocalAvatarForTutorialPhase(tutorialState.phase)
+  setLocalAvatarHidden(hidden)
+  setWeaponHiddenByTutorial(hidden)
 }
 
 function setZombiePaused(entity: Entity | null, paused: boolean): void {
@@ -219,6 +251,7 @@ function startTutorial(): void {
       z: tutorialState.focusPosition.z
     }
   })
+  setTutorialMovementLockPosition(tutorialState.playerSpawn)
 }
 
 function finishTutorial(): void {
@@ -232,6 +265,8 @@ function finishTutorial(): void {
   setAutoFireEnabled(false)
   setTutorialActive(false)
   setTutorialCombatEnabled(false)
+  setLocalAvatarHidden(false)
+  setWeaponHiddenByTutorial(false)
 
   movePlayerTo({
     newRelativePosition: LOBBY_RETURN_POSITION,
@@ -247,21 +282,25 @@ function cancelTutorialForMatchStart(): void {
   tutorialState.finishedThisSession = true
   setTutorialActive(false)
   setTutorialCombatEnabled(false)
+  setLocalAvatarHidden(false)
+  setWeaponHiddenByTutorial(false)
 }
 
 function setPhase(phase: TutorialPhase): void {
   tutorialState.phase = phase
   tutorialState.phaseStartedAt = getGameTime()
+  syncTutorialAvatarVisibility()
 }
 
 function updateTransitionPhase(now: number): void {
   if (now - tutorialState.phaseStartedAt < TUTORIAL_PANEL_TRANSITION_SEC) return
   if (tutorialState.phase === 'card2_transition') {
-    setPhase('card2_ready')
+    setPhase('card2_spawn_preview')
     return
   }
   if (tutorialState.phase === 'combat_transition_out') {
-    setPhase('combat_hidden')
+    setPhase('combat_countdown')
+    clearTutorialMovementLock()
     return
   }
   if (tutorialState.phase === 'card3_transition') {
@@ -271,6 +310,16 @@ function updateTransitionPhase(now: number): void {
   if (tutorialState.phase === 'collect_transition_out') {
     setPhase('collect_hidden')
   }
+}
+
+function updatePreviewPhase(now: number): void {
+  if (tutorialState.phase !== 'card2_spawn_preview') return
+  const elapsed = now - tutorialState.phaseStartedAt
+  if (elapsed >= TUTORIAL_ZOMBIE_SPAWN_DELAY_SEC && tutorialState.targetZombie === null) {
+    spawnTutorialZombies()
+  }
+  if (elapsed < TUTORIAL_SPLIT_PREVIEW_SEC) return
+  setPhase('card2_ready')
 }
 
 function updateCombatPhase(now: number): void {
@@ -289,6 +338,16 @@ function updateCombatPhase(now: number): void {
   setTutorialCombatEnabled(false)
   captureTutorialMovementLockPosition()
   setPhase('card3_transition')
+}
+
+function updateCombatCountdownPhase(now: number): void {
+  if (tutorialState.phase !== 'combat_countdown') return
+  if (now - tutorialState.phaseStartedAt < TUTORIAL_COMBAT_COUNTDOWN_SEC) return
+
+  setAutoFireEnabled(true)
+  setTutorialCombatEnabled(true)
+  setZombiePaused(tutorialState.targetZombie, false)
+  setPhase('combat_hidden')
 }
 
 function updateCoinAnimation(now: number): void {
@@ -337,7 +396,7 @@ function updateCoinPickup(now: number): void {
   removeEntity(tutorialState.coinEntity)
   tutorialState.coinEntity = null
   tutorialState.coinBasePosition = null
-  clearTutorialMovementLock()
+  captureTutorialMovementLockPosition()
   reportTutorialCompleted()
   setPhase('card4')
 }
@@ -375,6 +434,8 @@ function tutorialSystem(): void {
     return
   }
 
+  syncTutorialAvatarVisibility()
+
   const lobbyState = getLobbyState()
   if (lobbyState?.phase === LobbyPhase.MATCH_CREATED && isLocalReadyForMatch()) {
     cancelTutorialForMatchStart()
@@ -382,6 +443,8 @@ function tutorialSystem(): void {
   }
 
   const now = getGameTime()
+  updatePreviewPhase(now)
+
   if (
     tutorialState.phase === 'card2_transition' ||
     tutorialState.phase === 'combat_transition_out' ||
@@ -391,7 +454,9 @@ function tutorialSystem(): void {
     updateTransitionPhase(now)
   }
 
-  if (tutorialState.phase === 'combat_transition_out' || tutorialState.phase === 'combat_hidden') {
+  updateCombatCountdownPhase(now)
+
+  if (tutorialState.phase === 'combat_hidden') {
     updateCombatPhase(now)
   }
 
@@ -407,16 +472,13 @@ export function advanceTutorialPrimaryAction(): void {
   if (!tutorialState.active) return
 
   if (tutorialState.phase === 'card1') {
-    spawnTutorialZombies()
+    captureTutorialMovementLockPosition()
     setPhase('card2_transition')
     return
   }
 
   if (tutorialState.phase === 'card2_ready') {
     endUiPointerCapture()
-    setAutoFireEnabled(true)
-    setTutorialCombatEnabled(true)
-    setZombiePaused(tutorialState.targetZombie, false)
     setPhase('combat_transition_out')
     return
   }
@@ -455,7 +517,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: false,
       panelLayout: 'hidden',
       layoutProgress: 0,
-      rightBackdropProgress: 0
+      rightBackdropProgress: 0,
+      countdownText: ''
     }
   }
 
@@ -468,7 +531,22 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: true,
       panelLayout: 'center-large',
       layoutProgress: 0,
-      rightBackdropProgress: 0
+      rightBackdropProgress: 0,
+      countdownText: ''
+    }
+  }
+
+  if (tutorialState.phase === 'card2_spawn_preview') {
+    return {
+      active: true,
+      showPanel: true,
+      imageSrc: 'assets/images/tutorials/tutorial2.png',
+      primaryButton: null,
+      showSkip: true,
+      panelLayout: 'right-small',
+      layoutProgress: 1,
+      rightBackdropProgress: 1,
+      countdownText: ''
     }
   }
 
@@ -481,7 +559,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: true,
       panelLayout: 'transition-to-right',
       layoutProgress: transitionProgress,
-      rightBackdropProgress: transitionProgress
+      rightBackdropProgress: transitionProgress,
+      countdownText: ''
     }
   }
 
@@ -494,7 +573,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: true,
       panelLayout: 'right-small',
       layoutProgress: 1,
-      rightBackdropProgress: 1
+      rightBackdropProgress: 1,
+      countdownText: ''
     }
   }
 
@@ -507,7 +587,26 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: false,
       panelLayout: 'hidden',
       layoutProgress: 0,
-      rightBackdropProgress: 1 - transitionProgress
+      rightBackdropProgress: 1 - transitionProgress,
+      countdownText: ''
+    }
+  }
+
+  if (tutorialState.phase === 'combat_countdown') {
+    const countdownSecondsLeft = Math.max(
+      1,
+      Math.ceil(TUTORIAL_COMBAT_COUNTDOWN_SEC - (getGameTime() - tutorialState.phaseStartedAt))
+    )
+    return {
+      active: true,
+      showPanel: false,
+      imageSrc: '',
+      primaryButton: null,
+      showSkip: false,
+      panelLayout: 'hidden',
+      layoutProgress: 0,
+      rightBackdropProgress: 0,
+      countdownText: String(countdownSecondsLeft)
     }
   }
 
@@ -520,7 +619,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: false,
       panelLayout: 'hidden',
       layoutProgress: 0,
-      rightBackdropProgress: 0
+      rightBackdropProgress: 0,
+      countdownText: ''
     }
   }
 
@@ -533,7 +633,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: true,
       panelLayout: 'right-small',
       layoutProgress: 1,
-      rightBackdropProgress: transitionProgress
+      rightBackdropProgress: transitionProgress,
+      countdownText: ''
     }
   }
 
@@ -546,7 +647,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: true,
       panelLayout: 'right-small',
       layoutProgress: 1,
-      rightBackdropProgress: 1
+      rightBackdropProgress: 1,
+      countdownText: ''
     }
   }
 
@@ -559,7 +661,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: false,
       panelLayout: 'hidden',
       layoutProgress: 0,
-      rightBackdropProgress: 1 - transitionProgress
+      rightBackdropProgress: 1 - transitionProgress,
+      countdownText: ''
     }
   }
 
@@ -572,7 +675,8 @@ export function getTutorialUiState(): TutorialUiState {
       showSkip: false,
       panelLayout: 'hidden',
       layoutProgress: 0,
-      rightBackdropProgress: 0
+      rightBackdropProgress: 0,
+      countdownText: ''
     }
   }
 
@@ -584,7 +688,8 @@ export function getTutorialUiState(): TutorialUiState {
     showSkip: true,
     panelLayout: 'center-large',
     layoutProgress: 0,
-    rightBackdropProgress: 0
+    rightBackdropProgress: 0,
+    countdownText: ''
   }
 }
 
@@ -594,10 +699,12 @@ export function getTutorialCameraTransitionProgress(): number {
   if (tutorialState.phase === 'card2_transition') {
     return Math.max(0, Math.min(1, (getGameTime() - tutorialState.phaseStartedAt) / TUTORIAL_PANEL_TRANSITION_SEC))
   }
+  if (tutorialState.phase === 'card2_spawn_preview') return 1
   if (tutorialState.phase === 'card2_ready') return 1
   if (tutorialState.phase === 'combat_transition_out') {
     return 1 - Math.max(0, Math.min(1, (getGameTime() - tutorialState.phaseStartedAt) / TUTORIAL_PANEL_TRANSITION_SEC))
   }
+  if (tutorialState.phase === 'combat_countdown') return 0
   if (tutorialState.phase === 'combat_hidden') return 0
   if (tutorialState.phase === 'card3_transition') {
     return Math.max(0, Math.min(1, (getGameTime() - tutorialState.phaseStartedAt) / TUTORIAL_PANEL_TRANSITION_SEC))
@@ -607,4 +714,39 @@ export function getTutorialCameraTransitionProgress(): number {
     return 1 - Math.max(0, Math.min(1, (getGameTime() - tutorialState.phaseStartedAt) / TUTORIAL_PANEL_TRANSITION_SEC))
   }
   return 0
+}
+
+export function getTutorialCameraFocusTarget(): TutorialCameraFocusTarget | null {
+  if (!tutorialState.active) return null
+
+  if (
+    tutorialState.phase === 'card2_transition' ||
+    tutorialState.phase === 'card2_spawn_preview' ||
+    tutorialState.phase === 'card2_ready'
+  ) {
+    const position =
+      tutorialState.targetZombie !== null && Transform.has(tutorialState.targetZombie)
+        ? Transform.get(tutorialState.targetZombie).position
+        : tutorialState.focusPosition
+    return {
+      position: Vector3.create(position.x, position.y + 0.9, position.z),
+      kind: 'zombie'
+    }
+  }
+
+  if (
+    (tutorialState.phase === 'card3_transition' || tutorialState.phase === 'card3') &&
+    tutorialState.coinBasePosition !== null
+  ) {
+    return {
+      position: Vector3.create(
+        tutorialState.coinBasePosition.x,
+        tutorialState.coinBasePosition.y + TUTORIAL_COIN_FLOAT_HEIGHT,
+        tutorialState.coinBasePosition.z
+      ),
+      kind: 'coin'
+    }
+  }
+
+  return null
 }

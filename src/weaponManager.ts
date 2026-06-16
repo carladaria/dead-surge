@@ -16,6 +16,7 @@ let currentWeapon: WeaponType = 'gun'
 let arenaWeaponEnabled = false
 let hasSpawnedWeapon = false
 let weaponHiddenByDeath = false
+let weaponHiddenByTutorial = false
 let lifecycleSystemInitialized = false
 let shotgunPurchasedInMatch = false
 let minigunPurchasedInMatch = false
@@ -109,7 +110,23 @@ export function switchTo(type: WeaponType): boolean {
 export function enableArenaWeapon(): void {
   arenaWeaponEnabled = true
   if (isPlayerDead()) return
+  if (weaponHiddenByTutorial) return
   if (hasSpawnedWeapon) return
+  createWeapon(currentWeapon)
+}
+
+export function setWeaponHiddenByTutorial(hidden: boolean): void {
+  if (weaponHiddenByTutorial === hidden) return
+  weaponHiddenByTutorial = hidden
+
+  if (hidden) {
+    if (hasSpawnedWeapon) {
+      destroyCurrentWeapon()
+    }
+    return
+  }
+
+  if (!arenaWeaponEnabled || isPlayerDead() || hasSpawnedWeapon) return
   createWeapon(currentWeapon)
 }
 
@@ -119,6 +136,7 @@ export function resetArenaWeaponProgress(): void {
   arenaWeaponEnabled = false
   currentWeapon = 'gun'
   weaponHiddenByDeath = false
+  weaponHiddenByTutorial = false
   shotgunPurchasedInMatch = false
   minigunPurchasedInMatch = false
   resetMiniGunOverheatState()
@@ -131,6 +149,13 @@ function weaponLifecycleSystem(): void {
     if (hasSpawnedWeapon) {
       destroyCurrentWeapon()
       weaponHiddenByDeath = true
+    }
+    return
+  }
+
+  if (weaponHiddenByTutorial) {
+    if (hasSpawnedWeapon) {
+      destroyCurrentWeapon()
     }
     return
   }
