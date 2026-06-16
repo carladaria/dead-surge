@@ -53,6 +53,11 @@ export type TutorialUiState = {
   rightBackdropProgress: number
 }
 
+type TutorialZombiePauseState = {
+  speed: number
+  attackCooldown: number
+}
+
 const tutorialState: {
   active: boolean
   finishedThisSession: boolean
@@ -95,6 +100,7 @@ function removeEntity(entity: Entity | null): void {
 }
 
 function clearTutorialEntities(): void {
+  tutorialZombiePauseStates.clear()
   removeEntity(tutorialState.targetZombie)
   removeEntity(tutorialState.ambientZombie)
   removeEntity(tutorialState.coinEntity)
@@ -109,6 +115,8 @@ function clearTutorialMovementLock(): void {
   tutorialState.movementLockPosition = null
 }
 
+const tutorialZombiePauseStates = new Map<Entity, TutorialZombiePauseState>()
+
 function captureTutorialMovementLockPosition(): void {
   if (!Transform.has(engine.PlayerEntity)) return
   const position = Transform.get(engine.PlayerEntity).position
@@ -118,8 +126,23 @@ function captureTutorialMovementLockPosition(): void {
 function setZombiePaused(entity: Entity | null, paused: boolean): void {
   if (entity === null || !ZombieComponent.has(entity)) return
   const zombie = ZombieComponent.getMutable(entity)
-  zombie.speed = paused ? 0 : 1.5
-  zombie.attackCooldown = paused ? 999 : 0
+  if (paused) {
+    if (!tutorialZombiePauseStates.has(entity)) {
+      tutorialZombiePauseStates.set(entity, {
+        speed: zombie.speed,
+        attackCooldown: zombie.attackCooldown
+      })
+    }
+    zombie.speed = 0
+    zombie.attackCooldown = 999
+    return
+  }
+
+  const originalState = tutorialZombiePauseStates.get(entity)
+  if (!originalState) return
+  zombie.speed = originalState.speed
+  zombie.attackCooldown = originalState.attackCooldown
+  tutorialZombiePauseStates.delete(entity)
 }
 
 function spawnTutorialCoin(position: Vector3, now: number): void {
