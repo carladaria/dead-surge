@@ -750,3 +750,8 @@ export function getTutorialCameraFocusTarget(): TutorialCameraFocusTarget | null
 
   return null
 }
+
+export function shouldUseTutorialGameplayCloseCamera(): boolean {
+  if (!tutorialState.active) return false
+  return tutorialState.phase === 'combat_hidden' || tutorialState.phase === 'collect_hidden'
+}

@@ -9,7 +9,7 @@ import {
 } from '@dcl/sdk/ecs'
 import { isServer } from '@dcl/sdk/network'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
-import { setupUi } from './ui'
+import { isMobile, setupUi } from './ui'
 import {
   spawnZombie,
   spawnQuickZombie,
@@ -72,7 +72,12 @@ import { refreshArenaRoomConfigsFromScene } from './shared/roomConfig'
 import { DEBUG_SHOP_UI_ONLY, DEBUG_SHOP_UI_ONLY_LOADOUT, DEBUG_UI_ONLY_MODE } from './debugFlags'
 import { applyPlayerLoadoutSnapshot } from './loadoutState'
 import { openLobbyStore } from './lobbyStoreUi'
-import { getTutorialCameraFocusTarget, getTutorialCameraTransitionProgress, initTutorialSystem } from './tutorial'
+import {
+  getTutorialCameraFocusTarget,
+  getTutorialCameraTransitionProgress,
+  initTutorialSystem,
+  shouldUseTutorialGameplayCloseCamera
+} from './tutorial'
 import { getTutorialCoinCameraDebugState, getTutorialZombieCameraDebugState } from './tutorialCameraDebug'
 import { isTutorialActive } from './tutorialState'
 
@@ -96,6 +101,8 @@ const ISO_VIEW_DISTANCE = 8             // Diagonal distance from player — adj
 const ISO_VIEW_TILT_DEG = 55             // Angle looking down — adjust to taste
 const ISO_VIEW_SMOOTH_SPEED = 5
 const ISO_VIEW_DT_MAX = 1 / 30
+const ISO_VIEW_TUTORIAL_MOBILE_CLOSE_HEIGHT = 12.6
+const ISO_VIEW_TUTORIAL_MOBILE_CLOSE_DISTANCE = 6
 const ISO_VIEW_TUTORIAL_X_BIAS = 3.2
 const ISO_VIEW_TUTORIAL_Z_BIAS = -7.8
 const ISO_VIEW_TUTORIAL_YAW_BIAS_DEG = 7
@@ -204,6 +211,7 @@ function isoViewCameraSystem(dt: number) {
   const playerPos = Transform.get(engine.PlayerEntity).position
   const tutorialProgress = isTutorialActive() ? getTutorialCameraTransitionProgress() : 0
   const tutorialFocusTarget = isTutorialActive() ? getTutorialCameraFocusTarget() : null
+  const useTutorialMobileCloseCamera = isMobile() && shouldUseTutorialGameplayCloseCamera()
   const tutorialZombieCameraDebugState = getTutorialZombieCameraDebugState()
   const tutorialCoinCameraDebugState = getTutorialCoinCameraDebugState()
   const tutorialBiasX = tutorialFocusTarget
@@ -219,6 +227,8 @@ function isoViewCameraSystem(dt: number) {
   const focusBasePosition = tutorialFocusTarget
     ? Vector3.lerp(playerPos, tutorialFocusTarget.position, tutorialProgress)
     : playerPos
+  const baseIsoHeight = useTutorialMobileCloseCamera ? ISO_VIEW_TUTORIAL_MOBILE_CLOSE_HEIGHT : ISO_VIEW_HEIGHT
+  const baseIsoDistance = useTutorialMobileCloseCamera ? ISO_VIEW_TUTORIAL_MOBILE_CLOSE_DISTANCE : ISO_VIEW_DISTANCE
   const tutorialObjectHeight =
     tutorialFocusTarget?.kind === 'zombie'
       ? tutorialZombieCameraDebugState.height
@@ -227,8 +237,8 @@ function isoViewCameraSystem(dt: number) {
     tutorialFocusTarget?.kind === 'zombie'
       ? tutorialZombieCameraDebugState.distance
       : tutorialCoinCameraDebugState.distance
-  const cameraHeight = ISO_VIEW_HEIGHT + (tutorialObjectHeight - ISO_VIEW_HEIGHT) * tutorialProgress
-  const cameraDistance = ISO_VIEW_DISTANCE + (tutorialObjectDistance - ISO_VIEW_DISTANCE) * tutorialProgress
+  const cameraHeight = baseIsoHeight + (tutorialObjectHeight - baseIsoHeight) * tutorialProgress
+  const cameraDistance = baseIsoDistance + (tutorialObjectDistance - baseIsoDistance) * tutorialProgress
   // Diagonal offset: pull back equally on X and Z (45° corner)
   const diag = ISO_VIEW_DISTANCE * 0.707 // sin/cos of 45°
   const tutorialDiag = cameraDistance * 0.707
