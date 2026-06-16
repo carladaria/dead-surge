@@ -13,6 +13,7 @@ export type PlayerProfileV1 = {
   schemaVersion: number
   lastKnownName: string
   gold: number
+  tutorialCompleted: boolean
   lifetimeStats: {
     matchesPlayed: number
     wavesCleared: number
@@ -78,6 +79,7 @@ function emptyProfile(displayName: string): PlayerProfileV1 {
     schemaVersion: SCHEMA_VERSION,
     lastKnownName: displayName,
     gold: 0,
+    tutorialCompleted: false,
     lifetimeStats: {
       matchesPlayed: 0,
       wavesCleared: 0,
@@ -95,6 +97,7 @@ function normalizeProfile(value: unknown, displayName: string): PlayerProfileV1 
     schemaVersion: SCHEMA_VERSION,
     lastKnownName: typeof maybe.lastKnownName === 'string' ? maybe.lastKnownName : displayName,
     gold: typeof maybe.gold === 'number' && Number.isFinite(maybe.gold) ? maybe.gold : 0,
+    tutorialCompleted: maybe.tutorialCompleted === true,
     lifetimeStats: {
       matchesPlayed:
         typeof maybe.lifetimeStats?.matchesPlayed === 'number' && Number.isFinite(maybe.lifetimeStats.matchesPlayed)

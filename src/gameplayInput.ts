@@ -7,6 +7,7 @@ import {
   isIsoViewEnabled,
   toggleIsoView
 } from './viewModes'
+import { isTutorialActive, isTutorialCombatEnabled } from './tutorialState'
 
 export { isTopViewEnabled, setTopViewEnabled, isIsoViewEnabled, setIsoViewEnabled } from './viewModes'
 
@@ -87,6 +88,7 @@ function hasLiveZombies(): boolean {
 export function isGameplayFireHeld(): boolean {
   syncUiPointerCapture()
   if (isPlayerDead()) return false
+  if (isTutorialActive() && !isTutorialCombatEnabled()) return false
   if (uiPointerCaptureActive) return false
   if (autoFireEnabled) {
     if (!hasLiveZombies()) return false

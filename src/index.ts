@@ -72,6 +72,8 @@ import { refreshArenaRoomConfigsFromScene } from './shared/roomConfig'
 import { DEBUG_SHOP_UI_ONLY, DEBUG_SHOP_UI_ONLY_LOADOUT, DEBUG_UI_ONLY_MODE } from './debugFlags'
 import { applyPlayerLoadoutSnapshot } from './loadoutState'
 import { openLobbyStore } from './lobbyStoreUi'
+import { getTutorialCameraTransitionProgress, initTutorialSystem } from './tutorial'
+import { isTutorialActive } from './tutorialState'
 
 // Cinematic (Diablo-like) camera: follows player position but keeps fixed world rotation (no parent)
 const CINEMATIC_CAMERA_HEIGHT = 12
@@ -93,6 +95,9 @@ const ISO_VIEW_DISTANCE = 8             // Diagonal distance from player — adj
 const ISO_VIEW_TILT_DEG = 55             // Angle looking down — adjust to taste
 const ISO_VIEW_SMOOTH_SPEED = 5
 const ISO_VIEW_DT_MAX = 1 / 30
+const ISO_VIEW_TUTORIAL_X_BIAS = 3.2
+const ISO_VIEW_TUTORIAL_Z_BIAS = -7.8
+const ISO_VIEW_TUTORIAL_YAW_BIAS_DEG = 7
 
 let useCinematicCamera = false
 let cinematicCameraEntity: ReturnType<typeof engine.addEntity> | null = null
@@ -197,12 +202,15 @@ function isoViewCameraSystem(dt: number) {
 
   const stableDt = Math.min(dt, ISO_VIEW_DT_MAX)
   const playerPos = Transform.get(engine.PlayerEntity).position
+  const tutorialProgress = isTutorialActive() ? getTutorialCameraTransitionProgress() : 0
+  const tutorialBiasX = ISO_VIEW_TUTORIAL_X_BIAS * tutorialProgress
+  const tutorialBiasZ = ISO_VIEW_TUTORIAL_Z_BIAS * tutorialProgress
   // Diagonal offset: pull back equally on X and Z (45° corner)
   const diag = ISO_VIEW_DISTANCE * 0.707 // sin/cos of 45°
   const target = Vector3.create(
-    playerPos.x - diag,
+    playerPos.x - diag + tutorialBiasX,
     playerPos.y + ISO_VIEW_HEIGHT,
-    playerPos.z - diag
+    playerPos.z - diag + tutorialBiasZ
   )
 
   if (!isoViewSmoothedReady) {
@@ -212,7 +220,13 @@ function isoViewCameraSystem(dt: number) {
 
   const factor = 1 - Math.exp(-ISO_VIEW_SMOOTH_SPEED * stableDt)
   isoViewSmoothedPos = Vector3.lerp(isoViewSmoothedPos, target, factor)
-  Transform.getMutable(isoViewCameraEntity).position = isoViewSmoothedPos
+  const isoCameraTransform = Transform.getMutable(isoViewCameraEntity)
+  isoCameraTransform.position = isoViewSmoothedPos
+  isoCameraTransform.rotation = Quaternion.fromEulerDegrees(
+    ISO_VIEW_TILT_DEG,
+    45 + ISO_VIEW_TUTORIAL_YAW_BIAS_DEG * tutorialProgress,
+    0
+  )
 }
 
 function cinematicCameraFollowSystem(dt: number) {
@@ -381,6 +395,7 @@ export function main() {
   initArenaWallsSystem()
   // Authoritative match waves (30s active / 10s rest)
   initMatchWaveClientSystem()
+  initTutorialSystem()
 
   // Auto-fire toggle (F key) — must run before weapon systems
   engine.addSystem(updateAutoFireToggle)
