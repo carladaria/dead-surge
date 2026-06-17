@@ -15,6 +15,7 @@ import { getFireRateMultiplier } from './speedEffect'
 import { getLocalRotationFromWorld } from './shared/weaponMath'
 import { isGameplayFireHeld, isIsoViewEnabled } from './gameplayInput'
 import { isPlayerDead } from './playerHealth'
+import { isTutorialActive } from './tutorialState'
 import {
   WEAPON_DEFAULT_ROTATION,
   WEAPON_DEFAULT_SCALE,
@@ -102,6 +103,7 @@ let projectilePoolSoftCapWarned = false
 let worldMuzzleFlashPoolSoftCapWarned = false
 
 function isLocalPlayerInArena(): boolean {
+  if (isTutorialActive()) return !isPlayerDead()
   if (isPlayerDead()) return false
   const localAddress = getLocalAddress()
   const lobbyState = getLobbyState()

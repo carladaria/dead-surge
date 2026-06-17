@@ -395,6 +395,18 @@ function sendPlayerLoadoutState(address: string, to?: string[]): void {
   }, targets)
 }
 
+function sendPlayerTutorialState(address: string, to?: string[]): void {
+  const normalizedAddress = address.toLowerCase()
+  const progress = playerProgressStore.get(normalizedAddress)
+  if (!progress) return
+  const targets = to ?? [normalizedAddress]
+
+  sendMessage('playerTutorialState', {
+    address: normalizedAddress,
+    tutorialCompleted: progress.profile.tutorialCompleted
+  }, targets)
+}
+
 function sendArenaLoadoutStatesTo(roomId: RoomId, address: string): void {
   const normalizedAddress = address.toLowerCase()
   const lobbyState = getLobbyState(roomId)
@@ -1280,6 +1292,7 @@ async function ensurePlayerProfileLoaded(address: string): Promise<void> {
       })
     }
     sendPlayerLoadoutState(normalizedAddress)
+    sendPlayerTutorialState(normalizedAddress)
     return
   }
 
@@ -1297,6 +1310,7 @@ async function ensurePlayerProfileLoaded(address: string): Promise<void> {
   }
   loadedProfileAddresses.add(normalizedAddress)
   sendPlayerLoadoutState(normalizedAddress)
+  sendPlayerTutorialState(normalizedAddress)
   console.log(`[Server][Lobby] ProfileLoaded ${resolvedDisplayName} (${normalizedAddress})`)
   sendMessage('lobbyEvent', {
     type: 'profile_loaded',
@@ -1942,6 +1956,20 @@ export function setupLobbyServer(): void {
   room.onMessage('playerLoadProfile', async (_data, context) => {
     if (!context) return
     await ensurePlayerProfileLoaded(context.from)
+  })
+
+  room.onMessage('completeTutorial', async (_data, context) => {
+    if (!context) return
+    const normalizedAddress = context.from.toLowerCase()
+    await ensurePlayerProfileLoaded(normalizedAddress)
+    const progress = playerProgressStore.get(normalizedAddress)
+    if (!progress || progress.profile.tutorialCompleted) return
+
+    playerProgressStore.mutate(normalizedAddress, (state) => {
+      state.profile.tutorialCompleted = true
+    })
+    await playerProgressStore.save(normalizedAddress)
+    sendPlayerTutorialState(normalizedAddress)
   })
 
   room.onMessage('playerJoinLobby', async (data, context) => {

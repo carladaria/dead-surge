@@ -16,6 +16,7 @@ import { getCurrentRoomId as getRuntimeRoomId, setCurrentRoomId } from '../roomR
 import { DEFAULT_ROOM_ID, LOBBY_RETURN_POSITION, RoomId, getArenaRoomConfig, isRoomId } from '../shared/roomConfig'
 import { getServerTime } from '../shared/timeSync'
 import { setIsoViewEnabled, setTopViewEnabled, setAutoFireEnabled, setCameraModeToggleEnabled } from '../gameplayInput'
+import { setTutorialServerState } from '../tutorialState'
 
 let latestLobbyEvent = ''
 let latestLobbyEventType = ''
@@ -254,6 +255,11 @@ export function setupLobbyClient(): void {
     hasLocalLoadoutState = true
     applyPlayerLoadoutSnapshot(data)
   })
+  room.onMessage('playerTutorialState', (data) => {
+    const localAddress = getLocalAddress()
+    if (!localAddress || data.address !== localAddress) return
+    setTutorialServerState(data.tutorialCompleted)
+  })
   room.onMessage('playerArenaWeaponState', (data) => {
     if (data.weaponType !== 'gun' && data.weaponType !== 'shotgun' && data.weaponType !== 'minigun') return
     const upgradeLevel = typeof data.upgradeLevel === 'number' && data.upgradeLevel >= 1 ? data.upgradeLevel : 1
@@ -312,10 +318,19 @@ export function setupLobbyClient(): void {
 
 export function sendLoadProfile(): void {
   if (localAuthDebugActive) {
+    setTutorialServerState(false)
     console.log(`[LobbyClientDebug] skip remote playerLoadProfile addr=${getLocalAddress() || 'none'}`)
     return
   }
   void room.send('playerLoadProfile', {})
+}
+
+export function sendCompleteTutorial(): void {
+  if (localAuthDebugActive) {
+    console.log('[LobbyClientDebug] skip remote tutorial completion')
+    return
+  }
+  void room.send('completeTutorial', {})
 }
 
 export function sendRequestLoadoutRefresh(): void {
@@ -497,6 +512,7 @@ function autoJoinLobbySystem(): void {
 
   if (ensureLocalAuthDebugActive('autoJoinLobbySystem')) {
     hasProfileLoadSent = true
+    setTutorialServerState(false)
     console.log(`[LobbyClientDebug] local auth debug ready for ${localAddress}`)
     return
   }

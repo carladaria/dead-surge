@@ -101,6 +101,14 @@ export function createHealthBarForZombie(zombie: Entity, maxHp: number, heightOf
   return bar
 }
 
+export function setZombieHealthBarMaxHp(zombie: Entity, maxHp: number): void {
+  for (const [barEntity, barData] of engine.getEntitiesWith(HealthBarComponent)) {
+    if (barData.parent !== zombie || barData.isPlayer) continue
+    HealthBarComponent.getMutable(barEntity).maxHp = Math.max(1, maxHp)
+    return
+  }
+}
+
 /** Create a player's 3D health bar. */
 export function createHealthBarForPlayer(): Entity {
   return createHealthBarForPlayerEntity(engine.PlayerEntity, getLocalAddress())

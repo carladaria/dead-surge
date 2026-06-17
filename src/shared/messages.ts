@@ -3,6 +3,7 @@ import { registerMessages } from '@dcl/sdk/network'
 
 const LobbyMessages = {
   playerLoadProfile: Schemas.Map({}),
+  completeTutorial: Schemas.Map({}),
   playerJoinLobby: Schemas.Map({
     roomId: Schemas.String
   }),
@@ -178,6 +179,10 @@ const LobbyMessages = {
     gold: Schemas.Number,
     ownedWeaponIds: Schemas.Array(Schemas.String),
     equippedWeaponIds: Schemas.Array(Schemas.String)
+  }),
+  playerTutorialState: Schemas.Map({
+    address: Schemas.String,
+    tutorialCompleted: Schemas.Boolean
   }),
   lobbyEvent: Schemas.Map({
     type: Schemas.String,
