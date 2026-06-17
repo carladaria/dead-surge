@@ -66,6 +66,7 @@ import {
 } from './arenaRemoteDefaultWeapons'
 import { initArenaRemotePowerups } from './arenaRemotePowerups'
 // import { initLoadoutWorldPanel } from './loadoutWorldPanel'
+import { initPostTutorialArrow } from './postTutorialArrow'
 import { initTimeSync } from './shared/timeSync'
 import { room } from './shared/messages'
 import { refreshArenaRoomConfigsFromScene } from './shared/roomConfig'
@@ -391,6 +392,7 @@ export function main() {
     sendPlayerDamageRequest(amount)
   })
   initLobbyWorldPanel()
+  initPostTutorialArrow()
   initLeaderboardWorldPanel()
   initLobbyStore()
   initArenaRemoteDefaultWeapons()

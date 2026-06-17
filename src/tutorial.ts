@@ -8,6 +8,7 @@ import { setZombieHealthBarMaxHp } from './healthBar'
 import { closeLobbyStore } from './lobbyStoreUi'
 import { getLobbyState, getLocalAddress, getServerLoadingState, isLocalReadyForMatch, sendCompleteTutorial } from './multiplayer/lobbyClient'
 import { resetPlayerHealthAndLives } from './playerHealth'
+import { activatePostTutorialArrow, deactivatePostTutorialArrow } from './postTutorialArrow'
 import { getArenaRoomConfig, DEFAULT_ROOM_ID, LOBBY_RETURN_LOOK_AT, LOBBY_RETURN_POSITION } from './shared/roomConfig'
 import { LobbyPhase } from './shared/lobbySchemas'
 import { playCoinSound } from './soundManager'
@@ -232,6 +233,7 @@ function startTutorial(): void {
 
   clearTutorialEntities()
   clearTutorialMovementLock()
+  deactivatePostTutorialArrow()
   closeLobbyStore()
   setTutorialActive(true)
   setTutorialCombatEnabled(false)
@@ -272,6 +274,7 @@ function finishTutorial(): void {
     newRelativePosition: LOBBY_RETURN_POSITION,
     cameraTarget: LOBBY_RETURN_LOOK_AT
   })
+  activatePostTutorialArrow()
 }
 
 function cancelTutorialForMatchStart(): void {
@@ -284,6 +287,7 @@ function cancelTutorialForMatchStart(): void {
   setTutorialCombatEnabled(false)
   setLocalAvatarHidden(false)
   setWeaponHiddenByTutorial(false)
+  deactivatePostTutorialArrow()
 }
 
 function setPhase(phase: TutorialPhase): void {
