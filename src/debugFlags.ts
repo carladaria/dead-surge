@@ -14,7 +14,7 @@ export const DEBUG_SHOW_GAMEPLAY_HUD_IN_LOBBY = false
 export const DEBUG_LOBBY_MATCH_WAVE = 9
 export const DEBUG_LOBBY_MATCH_ZOMBIES_LEFT = 23
 export const DEBUG_LOBBY_MATCH_PHASE_SECONDS = 18
-export const DEBUG_FORCE_TUTORIAL_MODE = true
+export const DEBUG_FORCE_TUTORIAL_MODE = false
 
 export const DEBUG_SHOP_UI_ONLY_LOADOUT: PlayerLoadoutSnapshot = {
   gold: 30,
