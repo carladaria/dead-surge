@@ -1,5 +1,6 @@
 import { AudioSource, engine, Entity, Transform } from '@dcl/sdk/ecs'
 import { Quaternion, Vector3 } from '@dcl/sdk/math'
+import { getLobbyState, getLocalAddress, isLocalReadyForMatch } from './multiplayer/lobbyClient'
 
 /**
  * Centralized sound effects manager.
@@ -42,19 +43,23 @@ export const Sounds = {
   // Player feedback
   damage: 'assets/sounds/damage.mp3',
   // Match outcome
-  win: 'assets/sounds/yay01.mp3'
+  win: 'assets/sounds/yay01.mp3',
+  // Arena music
+  backgroundMusic: 'assets/sounds/backgroundmusic.mp3'
 } as const
 
 /** Global trim applied on top of every sound's own volume. One knob to scale ALL SFX. */
 const MASTER_VOLUME = 1
 /** Default volume for general sounds (deaths, pickups, win, etc.). */
-const DEFAULT_VOLUME = 0.5
+const DEFAULT_VOLUME = 0.28
 /** Weapon fire is intentionally quieter since it plays very frequently. */
-const WEAPON_VOLUME = 0.3
+const WEAPON_VOLUME = 0.18
 /** The minigun (SMG) clip is recorded quieter, so bump it to match the others. */
-const MINIGUN_VOLUME = 0.45
+const MINIGUN_VOLUME = 0.24
 /** Coin pickups happen constantly, so keep them in the background. */
-const COIN_VOLUME = 0.25
+const COIN_VOLUME = 0.14
+/** Arena background music should sit above SFX, but still leave headroom. */
+const BACKGROUND_MUSIC_VOLUME = 0.36
 
 function createAudioEntity(): Entity {
   const entity = engine.addEntity()
@@ -80,6 +85,17 @@ function playOnEntity(entity: Entity, url: string, volume: number): void {
   })
 }
 
+function playLoopOnEntity(entity: Entity, url: string, volume: number, playing: boolean): void {
+  AudioSource.createOrReplace(entity, {
+    audioClipUrl: url,
+    loop: true,
+    global: true,
+    volume: volume * MASTER_VOLUME,
+    currentTime: 0,
+    playing
+  })
+}
+
 // --- General round-robin pool (everything except weapon fire) ---
 const POOL_SIZE = 12
 const pool: Entity[] = []
@@ -102,6 +118,8 @@ export function playSound(url: string, volume: number = DEFAULT_VOLUME): void {
 
 // --- Dedicated weapon-fire channel ---
 let weaponFireEntity: Entity | null = null
+let backgroundMusicEntity: Entity | null = null
+let backgroundMusicPlaying = false
 
 export type ArenaWeaponSoundType = 'gun' | 'shotgun' | 'minigun'
 
@@ -148,4 +166,29 @@ export function playSpeedPickupSound(): void {
 
 export function playWinSound(): void {
   playSound(Sounds.win)
+}
+
+function shouldPlayArenaBackgroundMusic(): boolean {
+  const lobbyState = getLobbyState()
+  const localAddress = getLocalAddress()
+  if (!lobbyState || !localAddress) return false
+  if (lobbyState.phase !== 'match_created') return false
+  if (!isLocalReadyForMatch()) return false
+  return lobbyState.arenaPlayers.some((player) => player.address.toLowerCase() === localAddress)
+}
+
+function arenaBackgroundMusicSystem(): void {
+  const shouldPlay = shouldPlayArenaBackgroundMusic()
+  if (shouldPlay === backgroundMusicPlaying) return
+
+  if (backgroundMusicEntity === null) {
+    backgroundMusicEntity = createAudioEntity()
+  }
+
+  backgroundMusicPlaying = shouldPlay
+  playLoopOnEntity(backgroundMusicEntity, Sounds.backgroundMusic, BACKGROUND_MUSIC_VOLUME, shouldPlay)
+}
+
+export function initArenaBackgroundMusicSystem(): void {
+  engine.addSystem(arenaBackgroundMusicSystem, undefined, 'arena-background-music-system')
 }

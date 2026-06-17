@@ -72,6 +72,7 @@ import { refreshArenaRoomConfigsFromScene } from './shared/roomConfig'
 import { DEBUG_SHOP_UI_ONLY, DEBUG_SHOP_UI_ONLY_LOADOUT, DEBUG_UI_ONLY_MODE } from './debugFlags'
 import { applyPlayerLoadoutSnapshot } from './loadoutState'
 import { openLobbyStore } from './lobbyStoreUi'
+import { initArenaBackgroundMusicSystem } from './soundManager'
 
 // Cinematic (Diablo-like) camera: follows player position but keeps fixed world rotation (no parent)
 const CINEMATIC_CAMERA_HEIGHT = 12
@@ -319,6 +320,7 @@ export function main() {
   initTimeSync({ isServer: false })
 
   setupLobbyClient()
+  initArenaBackgroundMusicSystem()
   setupShotReplicationClient()
   initPotionSyncClient()
   initCollectibleClient()
