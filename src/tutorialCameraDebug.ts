@@ -10,7 +10,7 @@ export type TutorialObjectCameraDebugState = {
 export type TutorialObjectCameraDebugKey = keyof TutorialObjectCameraDebugState
 
 const DEFAULT_TUTORIAL_ZOMBIE_CAMERA_DEBUG_STATE: TutorialObjectCameraDebugState = {
-  xBias: 1.05,
+  xBias: -0.55,
   zBias: -0.15,
   height: 1.35,
   distance: 5.6,

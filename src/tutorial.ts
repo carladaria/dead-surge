@@ -1,6 +1,7 @@
-import { engine, Entity, GltfContainer, Transform } from '@dcl/sdk/ecs'
+import { engine, Entity, GltfContainer, Name, Transform } from '@dcl/sdk/ecs'
 import { Vector3 } from '@dcl/sdk/math'
 import { movePlayerTo } from '~system/RestrictedActions'
+import { EntityNames } from '../assets/scene/entity-names'
 import { DEBUG_FORCE_TUTORIAL_MODE } from './debugFlags'
 import { setLocalAvatarHidden } from './deathAnimation'
 import { endUiPointerCapture, setAutoFireEnabled, setIsoViewEnabled, setTopViewEnabled } from './gameplayInput'
@@ -9,7 +10,7 @@ import { closeLobbyStore } from './lobbyStoreUi'
 import { getLobbyState, getLocalAddress, getServerLoadingState, isLocalReadyForMatch, sendCompleteTutorial } from './multiplayer/lobbyClient'
 import { resetPlayerHealthAndLives } from './playerHealth'
 import { activatePostTutorialArrow, deactivatePostTutorialArrow } from './postTutorialArrow'
-import { getArenaRoomConfig, DEFAULT_ROOM_ID, LOBBY_RETURN_LOOK_AT, LOBBY_RETURN_POSITION } from './shared/roomConfig'
+import { LOBBY_RETURN_LOOK_AT, LOBBY_RETURN_POSITION } from './shared/roomConfig'
 import { LobbyPhase } from './shared/lobbySchemas'
 import { playCoinSound } from './soundManager'
 import { isTutorialCompleted, isTutorialStateLoaded, markTutorialCompletedLocally, setTutorialActive, setTutorialCombatEnabled } from './tutorialState'
@@ -17,7 +18,7 @@ import { enableArenaWeapon, resetArenaWeaponProgress, setWeaponHiddenByTutorial 
 import { addZombieCoins, COINS_PER_KILL, resetZombieCoins } from './zombieCoins'
 import { ZombieComponent, getGameTime, spawnZcRewardTextAtPosition, spawnZombie } from './zombie'
 
-const TUTORIAL_TARGET_HEALTH = 8
+const TUTORIAL_TARGET_HEALTH = 16
 const TUTORIAL_COIN_PICKUP_RADIUS = 1.9
 const TUTORIAL_COIN_FLOAT_HEIGHT = 0.65
 const TUTORIAL_COIN_BOB_AMPLITUDE = 0.12
@@ -25,6 +26,7 @@ const TUTORIAL_COIN_BOB_SPEED = 2.1
 const TUTORIAL_TARGET_Z_OFFSET = 8.5
 const TUTORIAL_PLAYER_SPAWN_X_OFFSET = 4
 const TUTORIAL_PLAYER_TO_TARGET_Z_GAP = 9.25
+const TUTORIAL_PLAYER_SPAWN_LOBBY_OFFSET = 4.5
 const TUTORIAL_ZOMBIE_SPAWN_DELAY_SEC = 0.22
 const TUTORIAL_SPLIT_PREVIEW_SEC = 1.2
 const TUTORIAL_PANEL_TRANSITION_SEC = 0.45
@@ -129,6 +131,53 @@ function clearTutorialMovementLock(): void {
 }
 
 const tutorialZombiePauseStates = new Map<Entity, TutorialZombiePauseState>()
+const TUTORIAL_ARENA_FLOOR_NAME_PREFIX = 'Plane'
+
+function findSceneEntity(entityName: EntityNames): Entity | null {
+  for (const [entity, name] of engine.getEntitiesWith(Name)) {
+    if (name.value === entityName) return entity
+  }
+  return null
+}
+
+function findTutorialArenaFloorEntity(arenaRootEntity: Entity): Entity | null {
+  for (const [entity, name, transform] of engine.getEntitiesWith(Name, Transform)) {
+    if (transform.parent !== arenaRootEntity) continue
+    if (!name.value.startsWith(TUTORIAL_ARENA_FLOOR_NAME_PREFIX)) continue
+    return entity
+  }
+  return null
+}
+
+function getTutorialArenaTransform(): {
+  center: Vector3
+  rotation: ReturnType<typeof Transform.get>['rotation']
+} | null {
+  const arenaEntity = findSceneEntity(EntityNames.arena_tutorial)
+  if (arenaEntity === null) return null
+
+  const rootTransform = Transform.getOrNull(arenaEntity)
+  const floorEntity = findTutorialArenaFloorEntity(arenaEntity)
+  const floorTransform = floorEntity !== null ? Transform.getOrNull(floorEntity) : null
+  if (!rootTransform) return null
+
+  if (!floorTransform) {
+    return {
+      center: Vector3.clone(rootTransform.position),
+      rotation: rootTransform.rotation
+    }
+  }
+
+  const scaledFloorOffset = Vector3.create(
+    floorTransform.position.x * rootTransform.scale.x,
+    floorTransform.position.y * rootTransform.scale.y,
+    floorTransform.position.z * rootTransform.scale.z
+  )
+  return {
+    center: Vector3.add(rootTransform.position, Vector3.rotate(scaledFloorOffset, rootTransform.rotation)),
+    rotation: rootTransform.rotation
+  }
+}
 
 function setTutorialMovementLockPosition(position: Vector3): void {
   tutorialState.movementLockPosition = Vector3.create(position.x, position.y, position.z)
@@ -214,21 +263,30 @@ function spawnTutorialZombies(): void {
   setZombiePaused(tutorialState.targetZombie, true)
 }
 
-function startTutorial(): void {
-  const roomConfig = getArenaRoomConfig(DEFAULT_ROOM_ID)
+function startTutorial(): boolean {
+  const tutorialArenaTransform = getTutorialArenaTransform()
+  if (tutorialArenaTransform === null) return false
+
+  const arenaCenter = tutorialArenaTransform.center
+  const arenaForward = Vector3.rotate(Vector3.Forward(), tutorialArenaTransform.rotation)
+  const arenaRight = Vector3.rotate(Vector3.Right(), tutorialArenaTransform.rotation)
+  const tutorialForward = arenaRight
+  const tutorialRight = Vector3.scale(arenaForward, -1)
+
   tutorialState.active = true
   tutorialState.phase = 'card1'
   tutorialState.phaseStartedAt = getGameTime()
   tutorialState.completionReported = false
-  tutorialState.focusPosition = Vector3.create(
-    roomConfig.arenaCenter.x,
-    roomConfig.arenaCenter.y,
-    roomConfig.arenaCenter.z + TUTORIAL_TARGET_Z_OFFSET
+  tutorialState.focusPosition = Vector3.add(
+    arenaCenter,
+    Vector3.scale(tutorialForward, TUTORIAL_TARGET_Z_OFFSET)
   )
-  tutorialState.playerSpawn = Vector3.create(
-    tutorialState.focusPosition.x + TUTORIAL_PLAYER_SPAWN_X_OFFSET,
-    tutorialState.focusPosition.y,
-    tutorialState.focusPosition.z - TUTORIAL_PLAYER_TO_TARGET_Z_GAP
+  tutorialState.playerSpawn = Vector3.add(
+    tutorialState.focusPosition,
+    Vector3.add(
+      Vector3.scale(tutorialRight, TUTORIAL_PLAYER_SPAWN_X_OFFSET),
+      Vector3.scale(tutorialForward, -(TUTORIAL_PLAYER_TO_TARGET_Z_GAP + TUTORIAL_PLAYER_SPAWN_LOBBY_OFFSET))
+    )
   )
 
   clearTutorialEntities()
@@ -254,6 +312,7 @@ function startTutorial(): void {
     }
   })
   setTutorialMovementLockPosition(tutorialState.playerSpawn)
+  return true
 }
 
 function finishTutorial(): void {
@@ -434,7 +493,7 @@ function tutorialSystem(): void {
     if (!Transform.has(engine.PlayerEntity)) return
     const lobbyState = getLobbyState()
     if (lobbyState?.phase === LobbyPhase.MATCH_CREATED || isLocalReadyForMatch()) return
-    startTutorial()
+    if (!startTutorial()) return
     return
   }
 

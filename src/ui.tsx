@@ -1213,7 +1213,7 @@ export const uiMenu = () => {
   const tutorialPanelRightOffset = 1020
   const tutorialPanelRightMargin = isMobileRuntime ? 88 : 28
   const tutorialPanelCenterTopOffset = isMobileRuntime ? -24 : -36
-  const tutorialPanelRightTopOffset = isMobileRuntime ? -178 : -154
+  const tutorialPanelRightTopOffset = isMobileRuntime ? -178 : 0
   const tutorialLayoutProgress =
     tutorialUiState.panelLayout === 'center-large'
       ? 0
