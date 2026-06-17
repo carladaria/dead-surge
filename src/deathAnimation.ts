@@ -8,10 +8,12 @@ import {
 } from '@dcl/sdk/ecs'
 import { Quaternion, Vector3 } from '@dcl/sdk/math'
 import { getLobbyState, getLocalAddress, getPlayerCombatSnapshot } from './multiplayer/lobbyClient'
+import { isTutorialActive } from './tutorialState'
 
 const FAR_AWAY = Vector3.create(10000, 10000, 10000)
 const HIDE_AREA_SIZE = Vector3.create(3, 4, 3)
 const HIDE_AREA_CENTER_Y_OFFSET = 1.5
+const TUTORIAL_HIDE_AREA_SIZE = Vector3.create(80, 16, 80)
 
 type ModifierState = 'inactive' | 'alive' | 'dead'
 
@@ -23,6 +25,7 @@ type HideEntry = {
 
 const hideEntriesByAddress = new Map<string, HideEntry>()
 let localHideEntry: HideEntry | null = null
+let tutorialHideEntry: Entity | null = null
 let initialized = false
 
 function createHideEntry(): HideEntry {
@@ -51,6 +54,38 @@ function createHideAreaEntity(position: Vector3, modifiers: AvatarModifierType[]
     excludeIds
   })
   return areaEntity
+}
+
+function syncTutorialRemoteHideArea(): void {
+  if (!isTutorialActive()) {
+    if (tutorialHideEntry !== null) {
+      engine.removeEntity(tutorialHideEntry)
+      tutorialHideEntry = null
+    }
+    return
+  }
+
+  const localAddress = getLocalAddress()
+  if (!localAddress || !Transform.has(engine.PlayerEntity)) return
+
+  const position = getLocalHidePosition()
+  if (tutorialHideEntry === null) {
+    tutorialHideEntry = engine.addEntity()
+    Transform.create(tutorialHideEntry, {
+      position,
+      rotation: Quaternion.Identity(),
+      scale: Vector3.One()
+    })
+    AvatarModifierArea.create(tutorialHideEntry, {
+      area: TUTORIAL_HIDE_AREA_SIZE,
+      modifiers: [AvatarModifierType.AMT_DISABLE_PASSPORTS, AvatarModifierType.AMT_HIDE_AVATARS],
+      excludeIds: [localAddress.toLowerCase()]
+    })
+    return
+  }
+
+  Transform.getMutable(tutorialHideEntry).position = position
+  AvatarModifierArea.getMutable(tutorialHideEntry).excludeIds = [localAddress.toLowerCase()]
 }
 
 function getOrCreateHideEntry(address: string): HideEntry {
@@ -136,6 +171,8 @@ function getLocalHidePosition(): Vector3 {
 }
 
 function deathAnimationSystem(): void {
+  syncTutorialRemoteHideArea()
+
   const lobby = getLobbyState()
   const localAddress = getLocalAddress()
   if (!lobby?.arenaPlayers.length) {
@@ -170,6 +207,10 @@ export function resetDeathAnimationState(): void {
     engine.removeEntity(entry.areaEntity)
   }
   hideEntriesByAddress.clear()
+  if (tutorialHideEntry) {
+    engine.removeEntity(tutorialHideEntry)
+    tutorialHideEntry = null
+  }
   if (localHideEntry) {
     engine.removeEntity(localHideEntry.areaEntity)
     localHideEntry = null

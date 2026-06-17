@@ -9,7 +9,7 @@ import {
 } from '@dcl/sdk/ecs'
 import { isServer } from '@dcl/sdk/network'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
-import { setupUi } from './ui'
+import { isMobile, setupUi } from './ui'
 import {
   spawnZombie,
   spawnQuickZombie,
@@ -66,12 +66,21 @@ import {
 } from './arenaRemoteDefaultWeapons'
 import { initArenaRemotePowerups } from './arenaRemotePowerups'
 // import { initLoadoutWorldPanel } from './loadoutWorldPanel'
+import { initPostTutorialArrow } from './postTutorialArrow'
 import { initTimeSync } from './shared/timeSync'
 import { room } from './shared/messages'
 import { refreshArenaRoomConfigsFromScene } from './shared/roomConfig'
 import { DEBUG_SHOP_UI_ONLY, DEBUG_SHOP_UI_ONLY_LOADOUT, DEBUG_UI_ONLY_MODE } from './debugFlags'
 import { applyPlayerLoadoutSnapshot } from './loadoutState'
 import { openLobbyStore } from './lobbyStoreUi'
+import {
+  getTutorialCameraFocusTarget,
+  getTutorialCameraTransitionProgress,
+  initTutorialSystem,
+  shouldUseTutorialGameplayCloseCamera
+} from './tutorial'
+import { getTutorialCoinCameraDebugState, getTutorialZombieCameraDebugState } from './tutorialCameraDebug'
+import { isTutorialActive } from './tutorialState'
 
 // Cinematic (Diablo-like) camera: follows player position but keeps fixed world rotation (no parent)
 const CINEMATIC_CAMERA_HEIGHT = 12
@@ -93,7 +102,11 @@ const ISO_VIEW_DISTANCE = 8             // Diagonal distance from player — adj
 const ISO_VIEW_TILT_DEG = 55             // Angle looking down — adjust to taste
 const ISO_VIEW_SMOOTH_SPEED = 5
 const ISO_VIEW_DT_MAX = 1 / 30
-
+const ISO_VIEW_TUTORIAL_MOBILE_CLOSE_HEIGHT = 12.6
+const ISO_VIEW_TUTORIAL_MOBILE_CLOSE_DISTANCE = 6
+const ISO_VIEW_TUTORIAL_X_BIAS = 3.2
+const ISO_VIEW_TUTORIAL_Z_BIAS = -7.8
+const ISO_VIEW_TUTORIAL_YAW_BIAS_DEG = 7
 let useCinematicCamera = false
 let cinematicCameraEntity: ReturnType<typeof engine.addEntity> | null = null
 let cinematicSmoothedTarget = Vector3.create(0, 0, 0)
@@ -197,12 +210,43 @@ function isoViewCameraSystem(dt: number) {
 
   const stableDt = Math.min(dt, ISO_VIEW_DT_MAX)
   const playerPos = Transform.get(engine.PlayerEntity).position
+  const tutorialProgress = isTutorialActive() ? getTutorialCameraTransitionProgress() : 0
+  const tutorialFocusTarget = isTutorialActive() ? getTutorialCameraFocusTarget() : null
+  const useTutorialMobileCloseCamera = isMobile() && shouldUseTutorialGameplayCloseCamera()
+  const tutorialZombieCameraDebugState = getTutorialZombieCameraDebugState()
+  const tutorialCoinCameraDebugState = getTutorialCoinCameraDebugState()
+  const tutorialBiasX = tutorialFocusTarget
+    ? (tutorialFocusTarget.kind === 'zombie'
+        ? tutorialZombieCameraDebugState.xBias
+        : tutorialCoinCameraDebugState.xBias) * tutorialProgress
+    : ISO_VIEW_TUTORIAL_X_BIAS * tutorialProgress
+  const tutorialBiasZ = tutorialFocusTarget
+    ? (tutorialFocusTarget.kind === 'zombie'
+        ? tutorialZombieCameraDebugState.zBias
+        : tutorialCoinCameraDebugState.zBias) * tutorialProgress
+    : ISO_VIEW_TUTORIAL_Z_BIAS * tutorialProgress
+  const focusBasePosition = tutorialFocusTarget
+    ? Vector3.lerp(playerPos, tutorialFocusTarget.position, tutorialProgress)
+    : playerPos
+  const baseIsoHeight = useTutorialMobileCloseCamera ? ISO_VIEW_TUTORIAL_MOBILE_CLOSE_HEIGHT : ISO_VIEW_HEIGHT
+  const baseIsoDistance = useTutorialMobileCloseCamera ? ISO_VIEW_TUTORIAL_MOBILE_CLOSE_DISTANCE : ISO_VIEW_DISTANCE
+  const tutorialObjectHeight =
+    tutorialFocusTarget?.kind === 'zombie'
+      ? tutorialZombieCameraDebugState.height
+      : tutorialCoinCameraDebugState.height
+  const tutorialObjectDistance =
+    tutorialFocusTarget?.kind === 'zombie'
+      ? tutorialZombieCameraDebugState.distance
+      : tutorialCoinCameraDebugState.distance
+  const cameraHeight = baseIsoHeight + (tutorialObjectHeight - baseIsoHeight) * tutorialProgress
+  const cameraDistance = baseIsoDistance + (tutorialObjectDistance - baseIsoDistance) * tutorialProgress
   // Diagonal offset: pull back equally on X and Z (45° corner)
   const diag = ISO_VIEW_DISTANCE * 0.707 // sin/cos of 45°
+  const tutorialDiag = cameraDistance * 0.707
   const target = Vector3.create(
-    playerPos.x - diag,
-    playerPos.y + ISO_VIEW_HEIGHT,
-    playerPos.z - diag
+    focusBasePosition.x - tutorialDiag + tutorialBiasX,
+    focusBasePosition.y + cameraHeight,
+    focusBasePosition.z - tutorialDiag + tutorialBiasZ
   )
 
   if (!isoViewSmoothedReady) {
@@ -212,7 +256,27 @@ function isoViewCameraSystem(dt: number) {
 
   const factor = 1 - Math.exp(-ISO_VIEW_SMOOTH_SPEED * stableDt)
   isoViewSmoothedPos = Vector3.lerp(isoViewSmoothedPos, target, factor)
-  Transform.getMutable(isoViewCameraEntity).position = isoViewSmoothedPos
+  const isoCameraTransform = Transform.getMutable(isoViewCameraEntity)
+  isoCameraTransform.position = isoViewSmoothedPos
+  if (tutorialFocusTarget && tutorialProgress > 0.001) {
+    const lookTarget = Vector3.create(
+      tutorialFocusTarget.position.x +
+        (tutorialFocusTarget.kind === 'zombie' ? tutorialZombieCameraDebugState.lookAtX : tutorialCoinCameraDebugState.lookAtX),
+      tutorialFocusTarget.position.y +
+        (tutorialFocusTarget.kind === 'zombie'
+          ? tutorialZombieCameraDebugState.lookAtHeight
+          : tutorialCoinCameraDebugState.lookAtHeight),
+      tutorialFocusTarget.position.z
+    )
+    const lookDirection = Vector3.normalize(Vector3.subtract(lookTarget, isoViewSmoothedPos))
+    isoCameraTransform.rotation = Quaternion.lookRotation(lookDirection)
+  } else {
+    isoCameraTransform.rotation = Quaternion.fromEulerDegrees(
+      ISO_VIEW_TILT_DEG,
+      45 + ISO_VIEW_TUTORIAL_YAW_BIAS_DEG * tutorialProgress,
+      0
+    )
+  }
 }
 
 function cinematicCameraFollowSystem(dt: number) {
@@ -328,6 +392,7 @@ export function main() {
     sendPlayerDamageRequest(amount)
   })
   initLobbyWorldPanel()
+  initPostTutorialArrow()
   initLeaderboardWorldPanel()
   initLobbyStore()
   initArenaRemoteDefaultWeapons()
@@ -381,6 +446,7 @@ export function main() {
   initArenaWallsSystem()
   // Authoritative match waves (30s active / 10s rest)
   initMatchWaveClientSystem()
+  initTutorialSystem()
 
   // Auto-fire toggle (F key) — must run before weapon systems
   engine.addSystem(updateAutoFireToggle)

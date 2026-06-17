@@ -78,6 +78,8 @@ import {
 import { LobbyPhase } from './shared/lobbySchemas'
 import { LOBBY_RETURN_POSITION } from './shared/roomConfig'
 import { MATCH_MAX_PLAYERS, START_GAME_COUNTDOWN_SECONDS } from './shared/matchConfig'
+import { advanceTutorialPrimaryAction, getTutorialUiState, skipTutorial } from './tutorial'
+import { isTutorialActive } from './tutorialState'
 import { getServerTime } from './shared/timeSync'
 
 const PLAYER_HP_FRAME_WIDTH = 581
@@ -650,6 +652,9 @@ function ServerLoadingPanel(props: {
   const panelTopOffset = compactLayout ? -10 : -36
   const panelWidth = compactLayout ? 260 : 300
   const panelHeight = compactLayout ? 186 : 170
+  const panelContainerWidth = compactLayout ? '38%' : '34%'
+  const panelRightMargin = compactLayout ? 20 : 32
+  const panelTopMargin = compactLayout ? 28 : 42
   const signalWidth = compactLayout ? 114 : 126
   const signalHeight = compactLayout ? 102 : 114
   const signalBottomMargin = compactLayout ? 14 : 24
@@ -661,12 +666,12 @@ function ServerLoadingPanel(props: {
   return (
     <UiEntity
       uiTransform={{
-        width: '100%',
+        width: panelContainerWidth,
         height: '100%',
         positionType: 'absolute',
-        position: { left: 0, top: panelTopOffset },
-        alignItems: 'center',
-        justifyContent: 'center'
+        position: { right: 0, top: panelTopOffset },
+        alignItems: 'flex-end',
+        justifyContent: 'flex-start'
       }}
     >
       <UiEntity
@@ -677,6 +682,7 @@ function ServerLoadingPanel(props: {
           alignItems: 'center',
           justifyContent: 'center',
           padding: { top: 14, right: 14, bottom: 14, left: 14 },
+          margin: { top: panelTopMargin, right: panelRightMargin },
           borderRadius: 10
         }}
       >
@@ -1094,6 +1100,7 @@ export const uiMenu = () => {
     lobbyState.phase === LobbyPhase.LOBBY ||
     (!isInArenaRoster && !isLocalReadyForMatch())
   const showGameplayHudDebug = DEBUG_SHOW_GAMEPLAY_HUD_IN_LOBBY && isLobbyContext
+  const tutorialActive = isTutorialActive()
   const syncedZombiesLeft = matchRuntime?.zombiesAlive ?? 0
   const localReadyForMatch = isLocalReadyForMatch()
   const showGameOverOverlay = shouldShowGameOverOverlay()
@@ -1114,7 +1121,7 @@ export const uiMenu = () => {
       ? Math.max(0, lobbyState.countdownEndTimeMs - timerNowMs)
       : 0
   const phaseRemainingSeconds = matchRuntime ? Math.max(0, Math.ceil((matchRuntime.phaseEndTimeMs - timerNowMs) / 1000)) : 0
-  const showLobbyHud = isLobbyContext && !showGameplayHudDebug && !lobbyStoreOpen && !showGameOverOverlay
+  const showLobbyHud = isLobbyContext && !showGameplayHudDebug && !lobbyStoreOpen && !showGameOverOverlay && !tutorialActive
   if (showGameOverOverlay && !gameOverOverlayVisibleLastFrame) {
     gameOverCounterAnimationStartedAtMs = Date.now()
   } else if (!showGameOverOverlay && gameOverOverlayVisibleLastFrame) {
@@ -1144,7 +1151,8 @@ export const uiMenu = () => {
     !localReadyForMatch &&
     arenaIntroSeconds <= 0 &&
     !(matchRuntime?.isRunning) &&
-    !showGameplayHudDebug
+    !showGameplayHudDebug &&
+    !tutorialActive
 
   const showZcCounter = showGameplayHud
   const brickTargetModeActive = isBrickTargetModeActive()
@@ -1195,6 +1203,72 @@ export const uiMenu = () => {
       ? activeEffectBarCount * effectBarHeight + Math.max(0, activeEffectBarCount - 1) * effectBarGap + 4
       : 0
   const healthPickupFeedback = showGameplayHud ? getHealthPickupFeedback(currentGameTime) : ''
+  const tutorialUiState = getTutorialUiState()
+  const tutorialVirtualWidth = 1920
+  const tutorialVirtualHeight = 1080
+  const tutorialPanelSmallWidth = isMobileRuntime ? 620 : 590
+  const tutorialPanelLargeWidth = isMobileRuntime ? 760 : 900
+  const tutorialRightColumnWidthRatio = isMobileRuntime ? 0.48 : 0.44
+  const tutorialRightColumnWidth = isMobileRuntime ? '48%' : '44%'
+  const tutorialPanelRightOffset = 1020
+  const tutorialPanelRightMargin = isMobileRuntime ? 88 : 28
+  const tutorialPanelCenterTopOffset = isMobileRuntime ? -24 : -36
+  const tutorialPanelRightTopOffset = isMobileRuntime ? -178 : 0
+  const tutorialLayoutProgress =
+    tutorialUiState.panelLayout === 'center-large'
+      ? 0
+      : tutorialUiState.panelLayout === 'right-small'
+        ? 1
+        : tutorialUiState.layoutProgress
+  const tutorialPanelWidth = Math.round(
+    tutorialPanelLargeWidth + (tutorialPanelSmallWidth - tutorialPanelLargeWidth) * tutorialLayoutProgress
+  )
+  const tutorialPanelHeight = Math.round((tutorialPanelWidth * 683) / 1024)
+  const tutorialPanelOffsetX = Math.round(tutorialPanelRightOffset * tutorialLayoutProgress)
+  const tutorialPanelOffsetY = Math.round(
+    tutorialPanelCenterTopOffset + (tutorialPanelRightTopOffset - tutorialPanelCenterTopOffset) * tutorialLayoutProgress
+  )
+  const tutorialPanelCenterLeft = Math.round((tutorialVirtualWidth - tutorialPanelWidth) * 0.5)
+  const tutorialPanelRightLeft = tutorialVirtualWidth - tutorialPanelWidth - tutorialPanelRightMargin
+  const tutorialPanelLeft = Math.round(
+    tutorialPanelCenterLeft + (tutorialPanelRightLeft - tutorialPanelCenterLeft) * tutorialLayoutProgress
+  )
+  const tutorialPanelTop = Math.round((tutorialVirtualHeight - tutorialPanelHeight) * 0.5 + tutorialPanelOffsetY)
+  const tutorialRightBackdropAlpha = tutorialUiState.rightBackdropProgress
+  const tutorialSkipButtonWidth = Math.round((tutorialPanelWidth * 131) / 1024)
+  const tutorialSkipButtonHeight = Math.round((tutorialPanelHeight * 60) / 683)
+  const tutorialSkipButtonLeft = Math.round((tutorialPanelWidth * 846) / 1024)
+  const tutorialSkipButtonTop = Math.round((tutorialPanelHeight * 37) / 683)
+  const tutorialPrimaryButtonRect =
+    tutorialUiState.primaryButton === 'start_mission'
+      ? {
+          left: Math.round((tutorialPanelWidth * 432) / 1024),
+          top: Math.round((tutorialPanelHeight * 539) / 683),
+          width: Math.round((tutorialPanelWidth * 530) / 1024),
+          height: Math.round((tutorialPanelHeight * 93) / 683)
+        }
+      : tutorialUiState.primaryButton === 'got_it'
+        ? {
+            left: Math.round((tutorialPanelWidth * 456) / 1024),
+            top: Math.round((tutorialPanelHeight * 520) / 683),
+            width: Math.round((tutorialPanelWidth * 488) / 1024),
+            height: Math.round((tutorialPanelHeight * 93) / 683)
+          }
+        : tutorialUiState.primaryButton === 'collect_zc'
+          ? {
+              left: Math.round((tutorialPanelWidth * 457) / 1024),
+              top: Math.round((tutorialPanelHeight * 520) / 683),
+              width: Math.round((tutorialPanelWidth * 490) / 1024),
+              height: Math.round((tutorialPanelHeight * 93) / 683)
+            }
+          : tutorialUiState.primaryButton === 'return_to_lobby'
+            ? {
+                left: Math.round((tutorialPanelWidth * 455) / 1024),
+                top: Math.round((tutorialPanelHeight * 531) / 683),
+                width: Math.round((tutorialPanelWidth * 495) / 1024),
+                height: Math.round((tutorialPanelHeight * 91) / 683)
+              }
+            : null
   const healthFeedbackTop = PLAYER_HP_FRAME_HEIGHT + PLAYER_HEALTH_FEEDBACK_TOP_GAP
   const healthFeedbackBottom = healthPickupFeedback
     ? healthFeedbackTop + PLAYER_HEALTH_FEEDBACK_HEIGHT
@@ -1314,6 +1388,138 @@ const teamPanelNameWidth = isMobileRuntime ? 100 : 120
           texture: { src: BLOOD_DAMAGE_FRAME_TEXTURE_SRC, filterMode: 'bi-linear', wrapMode: 'clamp' }
         }}
       />
+      {tutorialRightBackdropAlpha > 0.001 && (
+        <UiEntity
+          uiTransform={{
+            width: '100%',
+            height: '100%',
+            positionType: 'absolute',
+            position: { top: 0, left: 0 },
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            alignItems: 'stretch'
+          }}
+        >
+          <UiEntity
+            uiTransform={{
+              width: 2,
+              height: '100%'
+            }}
+            uiBackground={{
+              color: Color4.create(0.48, 0.78, 0.42, tutorialRightBackdropAlpha * 0.42)
+            }}
+          />
+          <UiEntity
+            uiTransform={{
+              width: tutorialRightColumnWidth,
+              height: '100%'
+            }}
+            uiBackground={{
+              color: Color4.create(0.02, 0.04, 0.03, tutorialRightBackdropAlpha * 0.6)
+            }}
+          />
+        </UiEntity>
+      )}
+      {tutorialUiState.active && tutorialUiState.showPanel && (
+        <UiEntity
+          uiTransform={{
+            width: '100%',
+            height: '100%',
+            positionType: 'absolute',
+            position: { top: 0, left: 0 },
+            flexDirection: isMobileRuntime ? 'column' : undefined,
+            alignItems: isMobileRuntime ? 'center' : undefined,
+            justifyContent: isMobileRuntime ? 'center' : undefined
+          }}
+        >
+          <UiEntity
+            uiTransform={
+              isMobileRuntime
+                ? {
+                    width: tutorialPanelWidth,
+                    height: tutorialPanelHeight,
+                    positionType: 'relative',
+                    margin: { left: tutorialPanelOffsetX, top: tutorialPanelOffsetY }
+                  }
+                : {
+                    width: tutorialPanelWidth,
+                    height: tutorialPanelHeight,
+                    positionType: 'absolute',
+                    position: { left: tutorialPanelLeft, top: tutorialPanelTop }
+                  }
+            }
+            uiBackground={{
+              textureMode: 'stretch',
+              texture: { src: tutorialUiState.imageSrc, filterMode: 'tri-linear', wrapMode: 'clamp' }
+            }}
+          >
+            {tutorialUiState.showSkip && (
+              <UiEntity
+                uiTransform={{
+                  width: tutorialSkipButtonWidth,
+                  height: tutorialSkipButtonHeight,
+                  positionType: 'absolute',
+                  position: { left: tutorialSkipButtonLeft, top: tutorialSkipButtonTop }
+                }}
+                uiBackground={{ color: Color4.create(1, 1, 1, 0) }}
+                onMouseDown={() => {
+                  beginUiPointerCapture()
+                  skipTutorial()
+                }}
+                onMouseUp={endUiPointerCapture}
+              />
+            )}
+            {tutorialPrimaryButtonRect && (
+              <UiEntity
+                uiTransform={{
+                  width: tutorialPrimaryButtonRect.width,
+                  height: tutorialPrimaryButtonRect.height,
+                  positionType: 'absolute',
+                  position: { left: tutorialPrimaryButtonRect.left, top: tutorialPrimaryButtonRect.top }
+                }}
+                uiBackground={{ color: Color4.create(1, 1, 1, 0) }}
+                onMouseDown={() => {
+                  beginUiPointerCapture()
+                  advanceTutorialPrimaryAction()
+                }}
+                onMouseUp={endUiPointerCapture}
+              />
+            )}
+          </UiEntity>
+        </UiEntity>
+      )}
+      {tutorialUiState.countdownText.length > 0 && (
+        <UiEntity
+          uiTransform={{
+            width: '100%',
+            height: '100%',
+            positionType: 'absolute',
+            position: { left: 0, top: 0 },
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <UiEntity
+            uiTransform={{
+              width: isMobileRuntime ? 260 : 220,
+              height: isMobileRuntime ? 140 : 120,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <UiEntity
+              uiTransform={{ width: '100%', height: '100%' }}
+              uiText={{
+                value: tutorialUiState.countdownText,
+                fontSize: isMobileRuntime ? 110 : 96,
+                color: Color4.create(1, 0.92, 0.38, 1),
+                textAlign: 'middle-center'
+              }}
+            />
+          </UiEntity>
+        </UiEntity>
+      )}
       {combinedDamageOverlayAlpha > 0.01 && (
         <UiEntity
           uiTransform={{
@@ -2559,7 +2765,7 @@ const teamPanelNameWidth = isMobileRuntime ? 100 : 120
           }}
         />
       )}
-      {!showGameplayHudDebug && <LobbyStoreUi />}
+      {!showGameplayHudDebug && !tutorialActive && <LobbyStoreUi />}
       {showServerLoader && (
         <ServerLoadingPanel
           completed={serverLoaderCompleted}
