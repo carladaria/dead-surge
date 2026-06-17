@@ -628,8 +628,7 @@ function ensureRewardTextPool(): void {
       width: 6.5,
       height: 2,
       textColor: Color4.create(REWARD_TEXT_BASE_COLOR.r, REWARD_TEXT_BASE_COLOR.g, REWARD_TEXT_BASE_COLOR.b, 0),
-      outlineWidth: 0.32,
-      outlineColor: Color3.create(0, 0, 0)
+      outlineWidth: 0
     })
     RewardTextComponent.create(entity, {
       active: false,

@@ -73,6 +73,7 @@ import { refreshArenaRoomConfigsFromScene } from './shared/roomConfig'
 import { DEBUG_SHOP_UI_ONLY, DEBUG_SHOP_UI_ONLY_LOADOUT, DEBUG_UI_ONLY_MODE } from './debugFlags'
 import { applyPlayerLoadoutSnapshot } from './loadoutState'
 import { openLobbyStore } from './lobbyStoreUi'
+import { initArenaBackgroundMusicSystem } from './soundManager'
 import {
   getTutorialCameraFocusTarget,
   getTutorialCameraTransitionProgress,
@@ -383,6 +384,7 @@ export function main() {
   initTimeSync({ isServer: false })
 
   setupLobbyClient()
+  initArenaBackgroundMusicSystem()
   setupShotReplicationClient()
   initPotionSyncClient()
   initCollectibleClient()
