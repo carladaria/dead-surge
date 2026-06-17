@@ -21,19 +21,17 @@ let postTutorialArrowEntity: Entity | null = null
 let postTutorialArrowTargetEntity: Entity | null = null
 let postTutorialArrowActive = false
 
-function requireSceneEntity(entityName: EntityNames): Entity {
+function findSceneEntity(entityName: EntityNames): Entity | null {
   for (const [entity, name] of engine.getEntitiesWith(Name)) {
     if (name.value === entityName) return entity
   }
 
-  throw new Error(`[PostTutorialArrow] Scene entity not found: ${entityName}`)
+  return null
 }
 
 export function initPostTutorialArrow(): void {
   if (postTutorialArrowEntity !== null) return
 
-  const roomConfig = getArenaRoomConfig(POST_TUTORIAL_TARGET_ROOM_ID)
-  postTutorialArrowTargetEntity = requireSceneEntity(roomConfig.triggerEntityName)
   postTutorialArrowEntity = engine.addEntity()
 
   Transform.create(postTutorialArrowEntity, {
@@ -60,7 +58,12 @@ export function deactivatePostTutorialArrow(): void {
 }
 
 function postTutorialArrowSystem(): void {
-  if (!postTutorialArrowActive || postTutorialArrowEntity === null || postTutorialArrowTargetEntity === null) return
+  if (!postTutorialArrowActive || postTutorialArrowEntity === null) return
+  if (postTutorialArrowTargetEntity === null) {
+    const roomConfig = getArenaRoomConfig(POST_TUTORIAL_TARGET_ROOM_ID)
+    postTutorialArrowTargetEntity = findSceneEntity(roomConfig.triggerEntityName)
+    if (postTutorialArrowTargetEntity === null) return
+  }
   if (isLocalPlayerInsideLobbyTrigger()) {
     deactivatePostTutorialArrow()
     return
