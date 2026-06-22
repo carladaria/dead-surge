@@ -193,7 +193,7 @@ export function getTutorialArenaFloorBounds(): { centerX: number; centerZ: numbe
   )
   const center = Vector3.add(rootTransform.position, Vector3.rotate(scaledFloorOffset, rootTransform.rotation))
   const sizeX = Math.abs(floorTransform.scale.x * rootTransform.scale.x)
-  const sizeZ = Math.abs(floorTransform.scale.y * rootTransform.scale.z)
+  const sizeZ = Math.abs(floorTransform.scale.y * rootTransform.scale.z) // Plane primitive: local Y maps to world Z
   return { centerX: center.x, centerZ: center.z, sizeX, sizeZ }
 }
 

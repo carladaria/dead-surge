@@ -80,9 +80,7 @@ function arenaWallsSystem(): void {
         config.floorMinZ + config.floorSizeZ
       )
     }
-    for (const side of WALL_SIDES) {
-      const entity = engine.addEntity()
-      Transform.create(entity)
+    for (const [side, entity] of createWallSet()) {
       tutorialWallEntities.set(side, entity)
     }
   }
