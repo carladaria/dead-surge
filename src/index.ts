@@ -77,8 +77,7 @@ import { initArenaBackgroundMusicSystem } from './soundManager'
 import {
   getTutorialCameraFocusTarget,
   getTutorialCameraTransitionProgress,
-  initTutorialSystem,
-  shouldUseTutorialGameplayCloseCamera
+  initTutorialSystem
 } from './tutorial'
 import { getTutorialCoinCameraDebugState, getTutorialZombieCameraDebugState } from './tutorialCameraDebug'
 import { isTutorialActive } from './tutorialState'
@@ -103,8 +102,8 @@ const ISO_VIEW_DISTANCE = 8             // Diagonal distance from player — adj
 const ISO_VIEW_TILT_DEG = 55             // Angle looking down — adjust to taste
 const ISO_VIEW_SMOOTH_SPEED = 5
 const ISO_VIEW_DT_MAX = 1 / 30
-const ISO_VIEW_TUTORIAL_MOBILE_CLOSE_HEIGHT = 12.6
-const ISO_VIEW_TUTORIAL_MOBILE_CLOSE_DISTANCE = 6
+const ISO_VIEW_MOBILE_HEIGHT = 11
+const ISO_VIEW_MOBILE_DISTANCE = 5.5
 const ISO_VIEW_TUTORIAL_X_BIAS = 3.2
 const ISO_VIEW_TUTORIAL_Z_BIAS = -7.8
 const ISO_VIEW_TUTORIAL_YAW_BIAS_DEG = 7
@@ -213,7 +212,7 @@ function isoViewCameraSystem(dt: number) {
   const playerPos = Transform.get(engine.PlayerEntity).position
   const tutorialProgress = isTutorialActive() ? getTutorialCameraTransitionProgress() : 0
   const tutorialFocusTarget = isTutorialActive() ? getTutorialCameraFocusTarget() : null
-  const useTutorialMobileCloseCamera = isMobile() && shouldUseTutorialGameplayCloseCamera()
+  const mobileCamera = isMobile()
   const tutorialZombieCameraDebugState = getTutorialZombieCameraDebugState()
   const tutorialCoinCameraDebugState = getTutorialCoinCameraDebugState()
   const tutorialBiasX = tutorialFocusTarget
@@ -229,8 +228,8 @@ function isoViewCameraSystem(dt: number) {
   const focusBasePosition = tutorialFocusTarget
     ? Vector3.lerp(playerPos, tutorialFocusTarget.position, tutorialProgress)
     : playerPos
-  const baseIsoHeight = useTutorialMobileCloseCamera ? ISO_VIEW_TUTORIAL_MOBILE_CLOSE_HEIGHT : ISO_VIEW_HEIGHT
-  const baseIsoDistance = useTutorialMobileCloseCamera ? ISO_VIEW_TUTORIAL_MOBILE_CLOSE_DISTANCE : ISO_VIEW_DISTANCE
+  const baseIsoHeight = mobileCamera ? ISO_VIEW_MOBILE_HEIGHT : ISO_VIEW_HEIGHT
+  const baseIsoDistance = mobileCamera ? ISO_VIEW_MOBILE_DISTANCE : ISO_VIEW_DISTANCE
   const tutorialObjectHeight =
     tutorialFocusTarget?.kind === 'zombie'
       ? tutorialZombieCameraDebugState.height

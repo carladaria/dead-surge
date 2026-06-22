@@ -1207,7 +1207,7 @@ export const uiMenu = () => {
   const tutorialVirtualWidth = 1920
   const tutorialVirtualHeight = 1080
   const tutorialPanelSmallWidth = isMobileRuntime ? 620 : 590
-  const tutorialPanelLargeWidth = isMobileRuntime ? 760 : 900
+  const tutorialPanelLargeWidth = isMobileRuntime ? 836 : 900
   const tutorialRightColumnWidthRatio = isMobileRuntime ? 0.48 : 0.44
   const tutorialRightColumnWidth = isMobileRuntime ? '48%' : '44%'
   const tutorialPanelRightOffset = 1020
