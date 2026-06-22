@@ -179,6 +179,24 @@ function getTutorialArenaTransform(): {
   }
 }
 
+export function getTutorialArenaFloorBounds(): { centerX: number; centerZ: number; sizeX: number; sizeZ: number } | null {
+  const arenaEntity = findSceneEntity(EntityNames.arena_tutorial)
+  if (arenaEntity === null) return null
+  const rootTransform = Transform.getOrNull(arenaEntity)
+  const floorEntity = findTutorialArenaFloorEntity(arenaEntity)
+  const floorTransform = floorEntity !== null ? Transform.getOrNull(floorEntity) : null
+  if (!rootTransform || !floorTransform) return null
+  const scaledFloorOffset = Vector3.create(
+    floorTransform.position.x * rootTransform.scale.x,
+    floorTransform.position.y * rootTransform.scale.y,
+    floorTransform.position.z * rootTransform.scale.z
+  )
+  const center = Vector3.add(rootTransform.position, Vector3.rotate(scaledFloorOffset, rootTransform.rotation))
+  const sizeX = Math.abs(floorTransform.scale.x * rootTransform.scale.x)
+  const sizeZ = Math.abs(floorTransform.scale.y * rootTransform.scale.z) // Plane primitive: local Y maps to world Z
+  return { centerX: center.x, centerZ: center.z, sizeX, sizeZ }
+}
+
 function setTutorialMovementLockPosition(position: Vector3): void {
   tutorialState.movementLockPosition = Vector3.create(position.x, position.y, position.z)
 }
