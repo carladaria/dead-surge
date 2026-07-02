@@ -24,6 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        # Pin Node to avoid recent fetch/socket regressions affecting
+        # Decentraland deploys against the Worlds content server.
+        node-version: 22.22.0
+        cache: npm
     - name: Install npm packages
       run: |
         if [ -f package-lock.json ]; then
@@ -32,8 +39,6 @@ jobs:
           npm install
         fi
     - name: Build scene
-      run: |
-        npm install --no-save @dcl/js-runtime@7.20.2-22169778016.commit-030cbfe
-        npm run build
+      run: npm run build
     - name: Deploy scene
       run: npm run deploy:${{ env.DEPLOY_ENV }}
