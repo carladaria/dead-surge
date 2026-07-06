@@ -8,6 +8,7 @@ import {
 } from '@dcl/sdk/ecs'
 import { EntityNames } from '../assets/scene/entity-names'
 import { openLobbyStore } from './lobbyStoreUi'
+import { openNpcHelpUi } from './npcHelpUi'
 
 type Entity = ReturnType<typeof engine.addEntity>
 type LobbyNpcConfig = {
@@ -29,7 +30,8 @@ const LOBBY_NPC_CONFIGS: LobbyNpcConfig[] = [
   {
     npcName: EntityNames.npcs02_glb,
     clickName: EntityNames.npc_collider_2,
-    hidden: true
+    hoverText: 'Need a hand?',
+    onClick: openNpcHelpUi
   }
 ]
 

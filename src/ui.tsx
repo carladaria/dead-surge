@@ -57,6 +57,7 @@ import {
 } from './debugFlags'
 import { OutlinedText } from './outlineComponent'
 import { LobbyStoreUi, isLobbyStoreOpen, openLobbyStore } from './lobbyStoreUi'
+import { NpcHelpUi } from './npcHelpUi'
 import { isLocalPlayerInsideLobbyTrigger } from './lobbyWorldPanel'
 import {
   getLobbyState,
@@ -2766,6 +2767,7 @@ const teamPanelNameWidth = isMobileRuntime ? 100 : 120
         />
       )}
       {!showGameplayHudDebug && !tutorialActive && <LobbyStoreUi />}
+      {!showGameplayHudDebug && !tutorialActive && <NpcHelpUi />}
       {showServerLoader && (
         <ServerLoadingPanel
           completed={serverLoaderCompleted}
