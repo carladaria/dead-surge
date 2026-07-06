@@ -636,6 +636,7 @@ async function resolveRuntimePlatform(): Promise<void> {
   } catch {
     isMobileRuntime = detectMobileUserAgent()
   }
+  applyUiRenderer()
 }
 
 function ServerLoadingPanel(props: {
@@ -753,12 +754,19 @@ function ServerLoadingPanel(props: {
   )
 }
 
+function applyUiRenderer(): void {
+  ReactEcsRenderer.setUiRenderer(uiMenu, {
+    virtualWidth: isMobileRuntime ? 1600 : 1920,
+    virtualHeight: isMobileRuntime ? 720 : 1080
+  })
+}
+
 export function setupUi() {
   if (!runtimePlatformLookupRequested) {
     runtimePlatformLookupRequested = true
     void resolveRuntimePlatform()
   }
-  ReactEcsRenderer.setUiRenderer(uiMenu, { virtualWidth: 1920, virtualHeight: 1080 })
+  applyUiRenderer()
 }
 
 function GameOverOverlay(props: { stats: GameOverStatsModel }) {
