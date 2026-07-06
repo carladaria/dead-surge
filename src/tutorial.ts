@@ -583,6 +583,11 @@ export function skipTutorial(): void {
   finishTutorial()
 }
 
+export function restartTutorial(): boolean {
+  tutorialState.finishedThisSession = false
+  return startTutorial()
+}
+
 export function getTutorialUiState(): TutorialUiState {
   const transitionProgress = Math.max(
     0,
