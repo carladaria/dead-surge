@@ -1,4 +1,4 @@
-import ReactEcs, { ReactEcsRenderer, UiEntity } from '@dcl/sdk/react-ecs'
+import ReactEcs, { ReactEcsRenderer, ScreenInsetArea, UiEntity } from '@dcl/sdk/react-ecs'
 import { Color4 } from '@dcl/sdk/math'
 import { movePlayerTo } from '~system/RestrictedActions'
 import { getExplorerInformation } from '~system/Runtime'
@@ -636,6 +636,7 @@ async function resolveRuntimePlatform(): Promise<void> {
   } catch {
     isMobileRuntime = detectMobileUserAgent()
   }
+  applyUiRenderer()
 }
 
 function ServerLoadingPanel(props: {
@@ -753,12 +754,19 @@ function ServerLoadingPanel(props: {
   )
 }
 
+function applyUiRenderer(): void {
+  ReactEcsRenderer.setUiRenderer(uiMenu, {
+    virtualWidth: isMobileRuntime ? 1600 : 1920,
+    virtualHeight: isMobileRuntime ? 720 : 1080
+  })
+}
+
 export function setupUi() {
   if (!runtimePlatformLookupRequested) {
     runtimePlatformLookupRequested = true
     void resolveRuntimePlatform()
   }
-  ReactEcsRenderer.setUiRenderer(uiMenu, { virtualWidth: 1920, virtualHeight: 1080 })
+  applyUiRenderer()
 }
 
 function GameOverOverlay(props: { stats: GameOverStatsModel }) {
@@ -1388,6 +1396,35 @@ const teamPanelNameWidth = isMobileRuntime ? 100 : 120
           texture: { src: BLOOD_DAMAGE_FRAME_TEXTURE_SRC, filterMode: 'bi-linear', wrapMode: 'clamp' }
         }}
       />
+      {combinedDamageOverlayAlpha > 0.01 && (
+        <UiEntity
+          uiTransform={{
+            width: '100%',
+            height: '100%',
+            positionType: 'absolute',
+            position: { left: 0, top: 0 }
+          }}
+          uiBackground={{
+            color: Color4.create(1, 1, 1, combinedDamageOverlayAlpha),
+            textureMode: 'stretch',
+            texture: { src: BLOOD_DAMAGE_FRAME_TEXTURE_SRC, filterMode: 'bi-linear', wrapMode: 'clamp' }
+          }}
+        />
+      )}
+      {showDeathBackdrop && (
+        <UiEntity
+          uiTransform={{
+            width: '100%',
+            height: '100%',
+            positionType: 'absolute',
+            position: { left: 0, top: 0 }
+          }}
+          uiBackground={{
+            color: Color4.create(0.08, 0.01, 0.01, showGameOverOverlay ? GAME_OVER_BACKDROP_ALPHA : DEATH_BACKDROP_ALPHA)
+          }}
+        />
+      )}
+      <ScreenInsetArea uiTransform={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
       {tutorialRightBackdropAlpha > 0.001 && (
         <UiEntity
           uiTransform={{
@@ -1519,34 +1556,6 @@ const teamPanelNameWidth = isMobileRuntime ? 100 : 120
             />
           </UiEntity>
         </UiEntity>
-      )}
-      {combinedDamageOverlayAlpha > 0.01 && (
-        <UiEntity
-          uiTransform={{
-            width: '100%',
-            height: '100%',
-            positionType: 'absolute',
-            position: { left: 0, top: 0 }
-          }}
-          uiBackground={{
-            color: Color4.create(1, 1, 1, combinedDamageOverlayAlpha),
-            textureMode: 'stretch',
-            texture: { src: BLOOD_DAMAGE_FRAME_TEXTURE_SRC, filterMode: 'bi-linear', wrapMode: 'clamp' }
-          }}
-        />
-      )}
-      {showDeathBackdrop && (
-        <UiEntity
-          uiTransform={{
-            width: '100%',
-            height: '100%',
-            positionType: 'absolute',
-            position: { left: 0, top: 0 }
-          }}
-          uiBackground={{
-            color: Color4.create(0.08, 0.01, 0.01, showGameOverOverlay ? GAME_OVER_BACKDROP_ALPHA : DEATH_BACKDROP_ALPHA)
-          }}
-        />
       )}
       {(rageActive || speedActive) && (
         <UiEntity
@@ -2772,6 +2781,7 @@ const teamPanelNameWidth = isMobileRuntime ? 100 : 120
           timeSeconds={currentGameTime}
         />
       )}
+    </ScreenInsetArea>
     </UiEntity>
   )
 }
