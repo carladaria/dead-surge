@@ -13,8 +13,8 @@
     "server-logs": "sdk-commands sdk-server-logs"
   },
   "devDependencies": {
-    "@dcl/sdk": "7.24.4-28592331167.commit-697ce9e",
-    "@dcl/js-runtime": "7.24.4-28592331167.commit-697ce9e"
+    "@dcl/sdk": "https://sdk-team-cdn.decentraland.org/@dcl/js-sdk-toolchain/branch/chore/storage-service-usage-improvements/dcl-sdk-7.24.6-30053227284.commit-1a44e31.tgz",
+    "@dcl/js-runtime": "https://sdk-team-cdn.decentraland.org/@dcl/js-sdk-toolchain/branch/chore/storage-service-usage-improvements/@dcl/js-runtime/dcl-js-runtime-7.24.6-30053227284.commit-1a44e31.tgz"
   },
   "engines": {
     "node": ">=16.0.0",
