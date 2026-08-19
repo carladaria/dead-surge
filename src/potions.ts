@@ -1,4 +1,4 @@
-import { Animator, engine, Entity, GltfContainer, Schemas, Transform } from '@dcl/sdk/ecs'
+import { Animator, engine, Entity, GltfContainer, Schemas, Transform, VisibilityComponent } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { playHealthPickupSound, playRagePickupSound, playSpeedPickupSound } from './soundManager'
 import { room } from './shared/messages'
@@ -10,17 +10,34 @@ import { getGameTime } from './zombie'
 import { getServerTime } from './shared/timeSync'
 import { getLobbyState, getLocalAddress, isLocalReadyForMatch, sendPlayerHealRequest } from './multiplayer/lobbyClient'
 
-const HEALTH_POTION_GLB = 'assets/scene/Models/pickups/PickUpHealth.glb'
-const RAGE_POTION_GLB = 'assets/scene/Models/pickups/PickUpRage.glb'
-const SPEED_POTION_GLB = 'assets/scene/Models/pickups/PickUpSpeed.glb'
+const HEALTH_PICKUP_EFFECT_GLB = 'assets/custom/models/powerup_health.glb'
+const HEALTH_PICKUP_EFFECT_ANIMS = [
+  'Health iconsAction.001', 'Health icons.001Action.001', 'Health icons.002Action.001',
+  'Health icons.003Action.001', 'Health icons.004Action.001', 'Health icons.005Action.001',
+  'Health icons.006Action.001', 'Health icons.007Action.001', 'Health icons.008Action.001',
+  'Health icons.009Action.001', 'Empty health icons.001Action', 'Empty heartAction.001'
+]
+const HEALTH_PICKUP_EFFECT_DURATION = 2.0
+
+const HEALTH_POTION_GLB = 'assets/custom/models/powerup_health_floor.glb'
+const RAGE_POTION_GLB = 'assets/custom/models/powerup_rage_floor.glb'
+const SPEED_POTION_GLB = 'assets/custom/models/powerup_speed_floor.glb'
 
 const HEALTH_POTION_SCALE = 1
 const RAGE_POTION_SCALE = 1
 const SPEED_POTION_SCALE = 1
 const PICKUP_RADIUS = 2
-const HEALTH_POTION_ANIMATION = 'Key.002Action'
-const RAGE_POTION_ANIMATION = 'Key.001Action'
-const SPEED_POTION_ANIMATION = 'KeyAction'
+
+const HEALTH_POTION_ANIMS = [
+  'Empty heartAction', 'Health iconsAction', 'Health icons.001Action', 'Health icons.002Action',
+  'Health icons.003Action', 'Health icons.004Action', 'Health icons.005Action',
+  'Health icons.006Action', 'Health icons.007Action', 'Health icons.008Action', 'Health icons.009Action'
+]
+const RAGE_POTION_ANIMS = [
+  'powerup_rageAction.001', 'ArmatureAction.009', 'ArmatureAction.010',
+  'ArmatureAction.011', 'ArmatureAction.012', 'ArmatureAction.013', 'Fire emptyAction.002'
+]
+const SPEED_POTION_ANIMS = ['CylinderAction.002', 'CylinderAction.003', 'SppedAction.001']
 
 type PotionType = 'health' | 'rage' | 'speed'
 
@@ -36,6 +53,38 @@ const PotionPickupComponent = engine.defineComponent('PotionPickup', PotionPicku
 let healthPickupFeedbackText = ''
 let healthPickupFeedbackEndTime = 0
 let isPotionSyncInitialized = false
+let healthPickupEffectEntity: Entity | null = null
+let healthPickupEffectHideAtMs = 0
+
+function ensureHealthPickupEffectEntity(): Entity {
+  if (healthPickupEffectEntity !== null && Transform.has(healthPickupEffectEntity)) return healthPickupEffectEntity
+  const entity = engine.addEntity()
+  Transform.create(entity, {
+    parent: engine.PlayerEntity,
+    position: Vector3.Zero(),
+    rotation: Quaternion.Identity(),
+    scale: Vector3.One()
+  })
+  GltfContainer.create(entity, {
+    src: HEALTH_PICKUP_EFFECT_GLB,
+    visibleMeshesCollisionMask: 0,
+    invisibleMeshesCollisionMask: 0
+  })
+  Animator.create(entity, {
+    states: HEALTH_PICKUP_EFFECT_ANIMS.map((clip) => ({ clip, playing: true, loop: true, speed: 1 }))
+  })
+  VisibilityComponent.create(entity, { visible: false })
+  healthPickupEffectEntity = entity
+  return entity
+}
+
+export function healthPickupEffectSystem(gameTime: number): void {
+  if (healthPickupEffectEntity === null) return
+  if (!Transform.has(healthPickupEffectEntity)) return
+  const shouldShow = healthPickupEffectHideAtMs > 0 && gameTime < healthPickupEffectHideAtMs
+  VisibilityComponent.getMutable(healthPickupEffectEntity).visible = shouldShow
+  if (!shouldShow) healthPickupEffectHideAtMs = 0
+}
 const localPotionEntityById = new Map<string, Entity>()
 let lastPotionRoomId = getCurrentRoomId()
 
@@ -56,10 +105,10 @@ function getPotionScale(potionType: PotionType): number {
   return SPEED_POTION_SCALE
 }
 
-function getPotionAnimation(potionType: PotionType): string {
-  if (potionType === 'health') return HEALTH_POTION_ANIMATION
-  if (potionType === 'rage') return RAGE_POTION_ANIMATION
-  return SPEED_POTION_ANIMATION
+function getPotionAnims(potionType: PotionType): string[] {
+  if (potionType === 'health') return HEALTH_POTION_ANIMS
+  if (potionType === 'rage') return RAGE_POTION_ANIMS
+  return SPEED_POTION_ANIMS
 }
 
 function createPotionEntity(potionId: string, potionType: PotionType, position: Vector3, removeAtTime: number): void {
@@ -86,7 +135,7 @@ function createPotionEntity(potionId: string, potionType: PotionType, position: 
     invisibleMeshesCollisionMask: 0
   })
   Animator.create(child, {
-    states: [{ clip: getPotionAnimation(potionType), playing: true, loop: true, speed: 1 }]
+    states: getPotionAnims(potionType).map((clip) => ({ clip, playing: true, loop: true, speed: 1 }))
   })
   PotionPickupComponent.create(root, {
     potionId,
@@ -125,6 +174,8 @@ function applyLocalPotionEffect(potionType: PotionType, now: number): void {
     healthPickupFeedbackEndTime = now + 1.5
     setHealGlowEndTime(now + 1.5)
     playHealthPickupSound()
+    ensureHealthPickupEffectEntity()
+    healthPickupEffectHideAtMs = now + HEALTH_PICKUP_EFFECT_DURATION
     return
   }
 
