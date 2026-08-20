@@ -2,38 +2,6 @@
   "version": 1,
   "components": [
     {
-      "name": "composite::root",
-      "jsonSchema": {
-        "type": "object",
-        "properties": {
-          "src": {
-            "type": "string",
-            "serializationType": "utf8-string"
-          },
-          "entities": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "src": {
-                  "type": "integer",
-                  "serializationType": "entity"
-                },
-                "dest": {
-                  "type": "integer",
-                  "serializationType": "entity"
-                }
-              },
-              "serializationType": "map"
-            },
-            "serializationType": "array"
-          }
-        },
-        "serializationType": "map"
-      },
-      "data": {}
-    },
-    {
       "name": "core::Transform",
       "jsonSchema": {
         "type": "object",
@@ -1315,16 +1283,16 @@
               "y": 0,
               "z": 0.03082275390625
             },
+            "scale": {
+              "x": 1.0666667222976685,
+              "y": 1,
+              "z": 1.0666667222976685
+            },
             "rotation": {
               "x": 0,
               "y": 0,
               "z": 0,
               "w": 1
-            },
-            "scale": {
-              "x": 1.0666667222976685,
-              "y": 1,
-              "z": 1.0666667222976685
             },
             "parent": 582
           }
@@ -1336,16 +1304,16 @@
               "y": 0,
               "z": -0.13117726147174835
             },
+            "scale": {
+              "x": 1.0666460990905762,
+              "y": 1,
+              "z": 63.73210525512695
+            },
             "rotation": {
               "x": 0,
               "y": 0.707099974155426,
               "z": 0,
               "w": 0.7071135640144348
-            },
-            "scale": {
-              "x": 1.0666460990905762,
-              "y": 1,
-              "z": 63.73210525512695
             },
             "parent": 582
           }
@@ -1357,16 +1325,16 @@
               "y": 0,
               "z": 64.45281982421875
             },
+            "scale": {
+              "x": 1.0666667222976685,
+              "y": 1,
+              "z": 1.0666667222976685
+            },
             "rotation": {
               "x": 0,
               "y": 0,
               "z": 0,
               "w": 1
-            },
-            "scale": {
-              "x": 1.0666667222976685,
-              "y": 1,
-              "z": 1.0666667222976685
             },
             "parent": 582
           }
@@ -1378,16 +1346,16 @@
               "y": 3.6682008613345835e-14,
               "z": 64.4639892578125
             },
+            "scale": {
+              "x": 1.0666667222976685,
+              "y": 1,
+              "z": 1.0666667222976685
+            },
             "rotation": {
               "x": 0,
               "y": 0,
               "z": 0,
               "w": 1
-            },
-            "scale": {
-              "x": 1.0666667222976685,
-              "y": 1,
-              "z": 1.0666667222976685
             },
             "parent": 582
           }
@@ -1399,16 +1367,16 @@
               "y": 3.6682008613345835e-14,
               "z": -0.06600634008646011
             },
+            "scale": {
+              "x": 1.0666667222976685,
+              "y": 1,
+              "z": 1.0666667222976685
+            },
             "rotation": {
               "x": 0,
               "y": 0,
               "z": 0,
               "w": 1
-            },
-            "scale": {
-              "x": 1.0666667222976685,
-              "y": 1,
-              "z": 1.0666667222976685
             },
             "parent": 582
           }
@@ -1420,16 +1388,16 @@
               "y": 0,
               "z": 64.45281982421875
             },
+            "scale": {
+              "x": 1.0666460990905762,
+              "y": 1,
+              "z": 63.73210525512695
+            },
             "rotation": {
               "x": 0,
               "y": 0.707099974155426,
               "z": 0,
               "w": 0.7071135640144348
-            },
-            "scale": {
-              "x": 1.0666460990905762,
-              "y": 1,
-              "z": 63.73210525512695
             },
             "parent": 582
           }
@@ -1441,16 +1409,16 @@
               "y": 0,
               "z": 0.7328224182128906
             },
+            "scale": {
+              "x": 1.0666667222976685,
+              "y": 1,
+              "z": 63.733333587646484
+            },
             "rotation": {
               "x": 0,
               "y": 0,
               "z": 0,
               "w": 1
-            },
-            "scale": {
-              "x": 1.0666667222976685,
-              "y": 1,
-              "z": 63.733333587646484
             },
             "parent": 582
           }
@@ -1462,16 +1430,16 @@
               "y": 0,
               "z": 0.624823272228241
             },
+            "scale": {
+              "x": 1.0666667222976685,
+              "y": 1,
+              "z": 63.733333587646484
+            },
             "rotation": {
               "x": 0,
               "y": 0,
               "z": 0,
               "w": 1
-            },
-            "scale": {
-              "x": 1.0666667222976685,
-              "y": 1,
-              "z": 63.733333587646484
             },
             "parent": 582
           }
@@ -1483,16 +1451,16 @@
               "y": 0.019999999552965164,
               "z": 32.20000076293945
             },
+            "scale": {
+              "x": 64,
+              "y": 63.9987678527832,
+              "z": 0.9999807476997375
+            },
             "rotation": {
               "x": 0.7070996761322021,
               "y": 0,
               "z": 0,
               "w": 0.7071138620376587
-            },
-            "scale": {
-              "x": 64,
-              "y": 63.9987678527832,
-              "z": 0.9999807476997375
             },
             "parent": 582
           }
@@ -1504,16 +1472,16 @@
               "y": 0,
               "z": 63.709999084472656
             },
+            "scale": {
+              "x": 0.75,
+              "y": 1,
+              "z": 0.3700000047683716
+            },
             "rotation": {
               "x": 0,
               "y": 0,
               "z": 0,
               "w": 1
-            },
-            "scale": {
-              "x": 0.75,
-              "y": 1,
-              "z": 0.3700000047683716
             },
             "parent": 0
           }
@@ -3109,9 +3077,9 @@
         "serializationType": "map"
       },
       "data": {
-        "582": {
+        "0": {
           "json": {
-            "gizmo": 1
+            "gizmo": 0
           }
         }
       }
@@ -3799,7 +3767,7 @@
                 "T",
                 "A"
               ],
-              "default": "T",
+              "default": "A",
               "serializationType": "enum-string",
               "enumObject": {
                 "Teen": "T",
@@ -4099,7 +4067,7 @@
             "description": "Multiplayer arena game focused on wave-based zombie combat, arena hazards, and short-session progression. Players enter an authoritative multiplayer match, survive escalating enemy waves, collect resources, buy stronger tools, and push as far as possible through a 100-wave survival ladder.",
             "thumbnail": "assets/images/DeadSurgeThumbnail2.png",
             "categories": [],
-            "author": "SDK",
+            "author": "DCL Regenesis Labs",
             "email": "",
             "tags": [],
             "layout": {
@@ -4735,6 +4703,10 @@
               {
                 "type": "delete",
                 "jsonSchema": "{\"type\":\"object\",\"properties\":{},\"serializationType\":\"map\"}"
+              },
+              {
+                "type": "spawn_entity",
+                "jsonSchema": "{\"type\":\"object\",\"properties\":{\"src\":{\"type\":\"string\",\"serializationType\":\"utf8-string\"},\"position\":{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"number\"},\"y\":{\"type\":\"number\"},\"z\":{\"type\":\"number\"},\"w\":{\"type\":\"number\"}},\"serializationType\":\"vector3\"}},\"serializationType\":\"map\"}"
               }
             ]
           }

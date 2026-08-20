@@ -1,4 +1,4 @@
-import { Animator, engine, Entity, GltfContainer, Schemas, Transform, VisibilityComponent } from '@dcl/sdk/ecs'
+import { Animator, engine, Entity, GltfContainer, Schemas, Transform } from '@dcl/sdk/ecs'
 import { Vector3, Quaternion } from '@dcl/sdk/math'
 import { playHealthPickupSound, playRagePickupSound, playSpeedPickupSound } from './soundManager'
 import { room } from './shared/messages'
@@ -23,9 +23,9 @@ const HEALTH_POTION_GLB = 'assets/custom/models/powerup_health_floor.glb'
 const RAGE_POTION_GLB = 'assets/custom/models/powerup_rage_floor.glb'
 const SPEED_POTION_GLB = 'assets/custom/models/powerup_speed_floor.glb'
 
-const HEALTH_POTION_SCALE = 1
-const RAGE_POTION_SCALE = 1
-const SPEED_POTION_SCALE = 1
+const HEALTH_POTION_SCALE = 1.5
+const RAGE_POTION_SCALE = 1.5
+const SPEED_POTION_SCALE = 1.5
 const PICKUP_RADIUS = 2
 
 const HEALTH_POTION_ANIMS = [
@@ -56,6 +56,9 @@ let isPotionSyncInitialized = false
 let healthPickupEffectEntity: Entity | null = null
 let healthPickupEffectHideAtMs = 0
 
+const EFFECT_SCALE_HIDDEN = Vector3.create(0.001, 0.001, 0.001)
+const EFFECT_SCALE_VISIBLE = Vector3.One()
+
 function ensureHealthPickupEffectEntity(): Entity {
   if (healthPickupEffectEntity !== null && Transform.has(healthPickupEffectEntity)) return healthPickupEffectEntity
   const entity = engine.addEntity()
@@ -63,7 +66,7 @@ function ensureHealthPickupEffectEntity(): Entity {
     parent: engine.PlayerEntity,
     position: Vector3.Zero(),
     rotation: Quaternion.Identity(),
-    scale: Vector3.One()
+    scale: EFFECT_SCALE_HIDDEN
   })
   GltfContainer.create(entity, {
     src: HEALTH_PICKUP_EFFECT_GLB,
@@ -73,17 +76,26 @@ function ensureHealthPickupEffectEntity(): Entity {
   Animator.create(entity, {
     states: HEALTH_PICKUP_EFFECT_ANIMS.map((clip) => ({ clip, playing: true, loop: true, speed: 1 }))
   })
-  VisibilityComponent.create(entity, { visible: false })
   healthPickupEffectEntity = entity
   return entity
+}
+
+function triggerHealthPickupEffect(now: number): void {
+  const entity = ensureHealthPickupEffectEntity()
+  Animator.getMutable(entity).states = HEALTH_PICKUP_EFFECT_ANIMS.map((clip) => ({
+    clip, playing: true, loop: true, speed: 1, shouldReset: true
+  }))
+  Transform.getMutable(entity).scale = EFFECT_SCALE_VISIBLE
+  healthPickupEffectHideAtMs = now + HEALTH_PICKUP_EFFECT_DURATION
 }
 
 export function healthPickupEffectSystem(gameTime: number): void {
   if (healthPickupEffectEntity === null) return
   if (!Transform.has(healthPickupEffectEntity)) return
-  const shouldShow = healthPickupEffectHideAtMs > 0 && gameTime < healthPickupEffectHideAtMs
-  VisibilityComponent.getMutable(healthPickupEffectEntity).visible = shouldShow
-  if (!shouldShow) healthPickupEffectHideAtMs = 0
+  if (healthPickupEffectHideAtMs > 0 && gameTime >= healthPickupEffectHideAtMs) {
+    Transform.getMutable(healthPickupEffectEntity).scale = EFFECT_SCALE_HIDDEN
+    healthPickupEffectHideAtMs = 0
+  }
 }
 const localPotionEntityById = new Map<string, Entity>()
 let lastPotionRoomId = getCurrentRoomId()
@@ -174,8 +186,7 @@ function applyLocalPotionEffect(potionType: PotionType, now: number): void {
     healthPickupFeedbackEndTime = now + 1.5
     setHealGlowEndTime(now + 1.5)
     playHealthPickupSound()
-    ensureHealthPickupEffectEntity()
-    healthPickupEffectHideAtMs = now + HEALTH_PICKUP_EFFECT_DURATION
+    triggerHealthPickupEffect(now)
     return
   }
 
@@ -201,6 +212,9 @@ function isLocalPlayerInCurrentMatch(): boolean {
 export function initPotionSyncClient(): void {
   if (isPotionSyncInitialized) return
   isPotionSyncInitialized = true
+
+  // Pre-load the health pickup effect GLB so it's ready when needed on mobile
+  ensureHealthPickupEffectEntity()
 
   room.onMessage('potionSpawned', (data) => {
     if (data.roomId !== getCurrentRoomId()) return
